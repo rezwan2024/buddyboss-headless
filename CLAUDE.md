@@ -183,6 +183,10 @@ are active. BuddyBoss Platform Pro is installed.
 - Credentials live in `.env.deploy` (gitignored) — never read, print, or commit it
 - `docs/routes.txt` lists all 153 registered `buddyboss/v1` routes from this
   actual install. Check it before assuming an endpoint exists.
+- `docs/samples/` (sample JSON responses, one per route) is **local-only** —
+  gitignored, never committed. Regenerate it with `./scripts/introspect-api.ts`
+  whenever you need it. It contains real member names and activity content from
+  the live site, and the repo is public.
 
 ## Scripts
 

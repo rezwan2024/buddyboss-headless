@@ -30,7 +30,7 @@ files instead of two hundred.
 - [x] `./scripts/push` — dry-run-by-default deploy
 - [x] `docs/routes.txt` — 153 live routes
 - [x] `CLAUDE.md`
-- [ ] `scripts/introspect-api.ts` — sample response per route into `docs/samples/`
+- [x] `scripts/introspect-api.ts` — sample response per route into `docs/samples/`
 
 **Done when:** a sample JSON response exists on disk for every route the project
 will use, so data shapes are ground truth rather than guesses.

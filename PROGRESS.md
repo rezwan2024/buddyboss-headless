@@ -10,9 +10,10 @@ reasoning in `DECISIONS.md`, rules in `CLAUDE.md`.
 
 ## Current state
 
-**Phase:** 0 — Harness
-**Next task:** `scripts/introspect-api.ts` — fetch a sample response for each route
-in `docs/routes.txt` and write it to `docs/samples/`
+**Phase:** 0 — Harness — done. Next up: Phase 1 — Scaffold.
+**Next task:** Scaffold the Next.js app (App Router, TypeScript strict, Tailwind,
+Biome), `lib/wp-fetch.ts`, connect GitHub repo to Vercel, configure Playwright MCP.
+See `PLAN.md` Phase 1.
 
 ## Blockers
 
@@ -44,11 +45,26 @@ Add to this list whenever a new one is introduced.
 
 | Var | Purpose |
 |---|---|
-| `WP_URL` | BuddyBoss REST base URL |
+| `WP_URL` | BuddyBoss REST base URL — set locally to `https://st2-rezwan.hz2.developbb.dev` in `.env.local`. Still needs adding to the Vercel dashboard once the project exists (Phase 1). |
 
 ---
 
 ## Session log
+
+### 2026-08-27 — Phase 0 complete: API introspection
+
+- Added `WP_URL=https://st2-rezwan.hz2.developbb.dev` to `.env.local`
+- Wrote `scripts/introspect-api.ts` — GET-only, unauthenticated (no auth exists
+  yet), fetches every route in `docs/routes.txt` and writes the raw response to
+  `docs/samples/<slug>.json`. Runs directly via `node` — Node 24 strips TS types
+  natively, no ts-node/tsx needed.
+- Regex path placeholders (e.g. `(?P<id>\d+)`) resolved to real IDs pulled from
+  the live site (member 3, activity 373, group 5, forum 702, topic 196, reply
+  290, xprofile field/group 1) so samples reflect real data, not 404s, where
+  content exists. Media/video/document/poll tables are empty on this site, so
+  those routes sampled a 404 — still a useful shape.
+- Ran it: 152/152 routes fetched, 0 errors. ~948K of samples on disk.
+- Phase 0 is done — every item in `PLAN.md` is checked off.
 
 ### 2026-08-27 — Setup
 
