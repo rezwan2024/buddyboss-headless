@@ -10,11 +10,9 @@ reasoning in `DECISIONS.md`, rules in `CLAUDE.md`.
 
 ## Current state
 
-**Phase:** 1 — Scaffold — mostly done, pending confirmation of the first
-GitHub-triggered deploy (this session's changes are about to be pushed).
-**Next task:** After confirming the Vercel deploy from this push succeeds,
-start Phase 2 — public reads (blog, members, profile, groups, forums; activity
-feed already ships from Phase 1). See `PLAN.md` Phase 2.
+**Phase:** 1 — Scaffold — done. Live at https://web-bb-0056.vercel.app.
+**Next task:** Phase 2 — public reads (blog, members, profile, groups, forums;
+activity feed already ships from Phase 1). See `PLAN.md` Phase 2.
 
 ## Blockers
 
@@ -32,11 +30,13 @@ Keep it running in its own terminal — don't start a second one if it's already
 running. Claude Code can also open the page itself once the Playwright MCP
 reconnects (see Blockers).
 
-**Live URL:** Vercel project `web` under the `bb-0056` team, GitHub-connected
-to `rezwan2024/buddyboss-headless` with root directory `apps/web`. No
-successful deploy yet as of this entry — pending the first push of this
-session's work. Record the actual `*.vercel.app` URL here once a deploy
-succeeds.
+**Live URL:** https://web-bb-0056.vercel.app — confirmed rendering real
+activity feed data (195 updates total, matching the live site). Vercel
+project `web` under the `bb-0056` team, GitHub-connected to
+`rezwan2024/buddyboss-headless`, root directory `apps/web`, auto-deploys on
+push to `main`. SSO deployment protection was on by default (redirected to a
+Vercel login page) — disabled so the URL is publicly viewable, per user
+confirmation.
 
 ## Open questions
 
