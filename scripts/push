@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
+source .env.deploy
+SUB="${1:-}"
+[ -z "$SUB" ] && { echo "usage: ./scripts/push <path-under-remote> [--go]"; exit 1; }
+DRY="--dry-run"
+[ "${2:-}" = "--go" ] && DRY=""
+[ -n "$DRY" ] && echo ">>> DRY RUN (add --go to apply)"
+rsync -avz $DRY \
+  -e "ssh -i $SFTP_KEY -p $SFTP_PORT" \
+  "./remote/$SUB" "$SFTP_USER@$SFTP_HOST:$SFTP_PATH/$(dirname "$SUB")/"

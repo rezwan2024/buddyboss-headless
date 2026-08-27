@@ -1,0 +1,5 @@
+.env.deploy
+.env.local
+remote/
+node_modules/
+.next/

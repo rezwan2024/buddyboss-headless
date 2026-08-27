@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "$0")/../.env.deploy"
+ssh -i "$SFTP_KEY" -p "$SFTP_PORT" "$SFTP_USER@$SFTP_HOST" \
+  "cd $SFTP_PATH && wp $(printf '%q ' "$@")"

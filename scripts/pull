@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
+source .env.deploy
+mkdir -p remote
+rsync -avz --delete \
+  -e "ssh -i $SFTP_KEY -p $SFTP_PORT" \
+  --exclude 'wp-content/uploads/' \
+  --exclude 'wp-content/cache/' \
+  "$SFTP_USER@$SFTP_HOST:$SFTP_PATH/" ./remote/
