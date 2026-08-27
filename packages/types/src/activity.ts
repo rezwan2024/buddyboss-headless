@@ -26,7 +26,7 @@ export const activityAvatarSchema = z
   })
   .catch({ full: "", thumb: "" });
 
-export const activitySchema = z.object({
+const activityFieldsSchema = z.object({
   id: looseNumber,
   user_id: looseNumber,
   name: z.string().catch(""),
@@ -48,7 +48,21 @@ export const activitySchema = z.object({
   comment_count: looseNumber,
 });
 
-export type Activity = z.infer<typeof activitySchema>;
+// A comment activity can carry its own replies under the same `comments` key
+// it was itself nested under — recursive, arbitrary depth. z.lazy() defers
+// evaluation of the self-reference until parse time, once `activitySchema`
+// is actually bound.
+export type Activity = z.infer<typeof activityFieldsSchema> & {
+  comments?: Activity[];
+};
+
+export const activitySchema: z.ZodType<Activity, z.ZodTypeDef, unknown> =
+  activityFieldsSchema.extend({
+    comments: z
+      .lazy(() => z.array(activitySchema))
+      .optional()
+      .catch(undefined),
+  });
 
 export const activityListSchema = z.array(activitySchema);
 

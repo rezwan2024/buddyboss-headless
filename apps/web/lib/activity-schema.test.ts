@@ -1,4 +1,4 @@
-import { activityListSchema } from "@buddyboss-headless/types";
+import { activityCommentsResponseSchema, activityListSchema } from "@buddyboss-headless/types";
 import { describe, expect, it } from "vitest";
 
 // BuddyBoss's real response mixes types across items — booleans as "" or 0,
@@ -75,5 +75,42 @@ describe("activityListSchema", () => {
     ]);
     expect(broken.user_avatar).toEqual({ full: "", thumb: "" });
     expect(broken.favorite_count).toBe(0);
+  });
+});
+
+describe("activityCommentsResponseSchema", () => {
+  it("parses arbitrarily nested replies (comments carry their own comments)", () => {
+    // Real shape from GET /buddyboss/v1/activity/{id}/comment: a reply to a
+    // comment is nested under that comment's own `comments` key.
+    const response = {
+      comment_count: 3,
+      comments: [
+        {
+          ...rawSample[0],
+          id: 374,
+          content_stripped: "hi",
+          comments: [
+            {
+              ...rawSample[0],
+              id: 375,
+              content_stripped: "ok",
+            },
+          ],
+        },
+        {
+          ...rawSample[0],
+          id: 376,
+          content_stripped: "2nd",
+        },
+      ],
+    };
+
+    const parsed = activityCommentsResponseSchema.parse(response);
+    expect(parsed.comments).toHaveLength(2);
+    expect(parsed.comments[0].content_stripped).toBe("hi");
+    expect(parsed.comments[0].comments).toHaveLength(1);
+    expect(parsed.comments[0].comments?.[0].content_stripped).toBe("ok");
+    expect(parsed.comments[1].content_stripped).toBe("2nd");
+    expect(parsed.comments[1].comments).toBeUndefined();
   });
 });

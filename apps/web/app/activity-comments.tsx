@@ -1,31 +1,15 @@
 "use client";
 
 import { decodeEntities, timeAgo } from "@/lib/format";
+import type { Activity } from "@buddyboss-headless/types";
 import { useQuery } from "@tanstack/react-query";
 import Image from "next/image";
 import { loadActivityComments } from "./actions";
 
-export default function ActivityComments({ activityId }: { activityId: number }) {
-  const { data, isPending, isError } = useQuery({
-    queryKey: ["activity-comments", activityId],
-    queryFn: () => loadActivityComments(activityId),
-  });
-
-  if (isPending) {
-    return <p className="mt-3 text-sm text-black/50 dark:text-white/50">Loading comments…</p>;
-  }
-
-  if (isError) {
-    return <p className="mt-3 text-sm text-red-700 dark:text-red-400">Couldn't load comments.</p>;
-  }
-
-  if (data.comments.length === 0) {
-    return <p className="mt-3 text-sm text-black/50 dark:text-white/50">No comments yet.</p>;
-  }
-
+function CommentThread({ comments }: { comments: Activity[] }) {
   return (
     <ul className="mt-3 space-y-3 border-l border-black/10 pl-3 dark:border-white/10">
-      {data.comments.map((comment) => (
+      {comments.map((comment) => (
         <li key={comment.id} className="flex gap-2">
           <Image
             src={comment.user_avatar.thumb}
@@ -46,9 +30,35 @@ export default function ActivityComments({ activityId }: { activityId: number })
                 dangerouslySetInnerHTML={{ __html: comment.content.rendered }}
               />
             )}
+            {/* Replies to this comment come nested under the same `comments`
+                key it was itself found under — recurse to render them. */}
+            {comment.comments && comment.comments.length > 0 && (
+              <CommentThread comments={comment.comments} />
+            )}
           </div>
         </li>
       ))}
     </ul>
   );
+}
+
+export default function ActivityComments({ activityId }: { activityId: number }) {
+  const { data, isPending, isError } = useQuery({
+    queryKey: ["activity-comments", activityId],
+    queryFn: () => loadActivityComments(activityId),
+  });
+
+  if (isPending) {
+    return <p className="mt-3 text-sm text-black/50 dark:text-white/50">Loading comments…</p>;
+  }
+
+  if (isError) {
+    return <p className="mt-3 text-sm text-red-700 dark:text-red-400">Couldn't load comments.</p>;
+  }
+
+  if (data.comments.length === 0) {
+    return <p className="mt-3 text-sm text-black/50 dark:text-white/50">No comments yet.</p>;
+  }
+
+  return <CommentThread comments={data.comments} />;
 }

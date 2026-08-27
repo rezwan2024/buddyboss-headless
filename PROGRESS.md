@@ -68,6 +68,25 @@ this list whenever a new one is introduced.
 
 ## Session log
 
+### 2026-08-27 — Threaded (nested) comment replies
+
+- User reported a reply-to-a-comment ("ok", replying to "hi") was missing
+  from the expanded thread, though it shows nested on the live site. Cause:
+  a comment can carry its own replies recursively under the same `comments`
+  key it was itself nested under (arbitrary depth), and `activitySchema`
+  didn't model that field at all — zod silently dropped it (extra keys are
+  stripped by default), so replies were just never in the parsed data.
+  Made `Activity` recursive (`comments?: Activity[]`) via `z.lazy()`, and
+  `<ActivityComments>` now renders replies recursively, indented under
+  their parent, matching parent→child.
+- Same zod generic-variance gotcha as `wp-fetch.ts` (see `DECISIONS.md`)
+  showed up again on the explicit `z.ZodType<Activity>` annotation this
+  recursive type needs — fixed the same way, loosening `Input` instead of
+  pinning it to `Activity`.
+- Added a unit test parsing a nested-reply fixture end to end (was worth a
+  real test, not just eyeballing the API response — this is exactly the
+  kind of shape a hand-written schema misses silently).
+
 ### 2026-08-27 — Clickable comment threads
 
 - User reported "N comments" was static text, unlike the live BuddyBoss site
