@@ -30,11 +30,13 @@ Keep it running in its own terminal — don't start a second one if it's already
 running. Claude Code can also open the page itself once the Playwright MCP
 reconnects (see Blockers).
 
-**Live URL:** https://web-bb-0056.vercel.app — confirmed rendering real
-activity feed data (195 updates total, matching the live site). Vercel
-project `web` under the `bb-0056` team, GitHub-connected to
+**Live URL:** https://buddyboss.vercel.app — confirmed rendering real activity
+feed data (195 updates total, matching the live site). Vercel project
+`buddyboss` (renamed from `web`) under the `bb-0056` team, GitHub-connected to
 `rezwan2024/buddyboss-headless`, root directory `apps/web`, auto-deploys on
-push to `main`. SSO deployment protection was on by default (redirected to a
+push to `main`. `buddyboss.vercel.app` is a project-level production alias,
+so it tracks new deploys automatically — no need to re-alias after each push.
+SSO deployment protection was on by default (redirected to a
 Vercel login page) — disabled so the URL is publicly viewable, per user
 confirmation.
 
