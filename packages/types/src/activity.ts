@@ -15,6 +15,38 @@ const reactedNames = z
   .transform((v) => (typeof v === "string" ? v : ""))
   .catch("");
 
+// A photo attached to the post (not the same thing as a feature image —
+// this is BuddyBoss Media, a separate attachment with its own sizes).
+const activityMediaItemSchema = z.object({
+  id: looseNumber,
+  attachment_data: z
+    .object({
+      full: z.string().catch(""),
+      activity_thumb: z.string().catch(""),
+    })
+    .catch({ full: "", activity_thumb: "" }),
+});
+
+// `bp_media_ids` is `null` when nothing's attached, otherwise an array —
+// never an empty array in practice, but treat it the same as null either way.
+const bpMediaIds = z
+  .array(activityMediaItemSchema)
+  .nullable()
+  .catch(null)
+  .transform((v) => (v && v.length > 0 ? v : null));
+
+// `bb_activity_post_feature_image` is `[]` (empty array) when unset, or an
+// object when a feature image is attached to a text post.
+const featureImageObjectSchema = z.object({
+  url: z.string().catch(""),
+  medium: z.string().catch(""),
+  thumb: z.string().catch(""),
+});
+const bbActivityPostFeatureImage = z
+  .union([z.array(z.unknown()), featureImageObjectSchema])
+  .catch([])
+  .transform((v) => (Array.isArray(v) ? null : v));
+
 export const activityAvatarSchema = avatarUrlsSchema;
 
 const activityFieldsSchema = z.object({
@@ -38,6 +70,8 @@ const activityFieldsSchema = z.object({
   reacted_names: reactedNames,
   can_comment: looseBoolean,
   comment_count: looseNumber,
+  bp_media_ids: bpMediaIds,
+  bb_activity_post_feature_image: bbActivityPostFeatureImage,
 });
 
 // A comment activity can carry its own replies under the same `comments` key

@@ -75,6 +75,31 @@ this list whenever a new one is introduced.
 
 ## Session log
 
+### 2026-08-28 — Activity feed: render attached photos and feature images
+
+- User reported post images not showing in the activity feed. Real bug:
+  `activitySchema` never parsed `bp_media_ids` (BuddyBoss Media photo
+  attachments) or `bb_activity_post_feature_image` at all — the fields
+  were silently dropped by zod (unknown keys stripped by default), so the
+  data never reached the component in the first place.
+- Added both fields to the schema, with the loose-typing quirks specific to
+  each: `bp_media_ids` is `null` (no attachment) or an array — normalized
+  so an empty array and `null` are treated the same. `bb_activity_post_feature_image`
+  is `[]` (unset) or an object (set) — a `z.union` + transform normalizes
+  both to `object | null`.
+- `<ActivityItem>` renders `bp_media_ids` as a grid (1 photo = full width,
+  2+ = two columns) using each attachment's `activity_thumb` size, or the
+  feature image (when there's no attached photo) as a single full-width
+  image — both via `next/image` `fill`, same pattern used elsewhere.
+- Verified against live data, not just the schema: an E2E test confirms an
+  actual `<img>` renders inside a post, and the dev server's own LCP log
+  line during the test run named the exact attached-photo URL as the
+  page's Largest Contentful Paint — real proof it painted, not just parsed.
+- Comment threads reuse `activitySchema` too (so their media parses the
+  same way) but aren't rendered yet — out of scope for this fix, comments
+  with attached photos are rare and this was specifically about the main
+  feed.
+
 ### 2026-08-27 — Account menu: profile icon + hover dropdown
 
 - User asked to replace the "Name · Log out" header text with a profile

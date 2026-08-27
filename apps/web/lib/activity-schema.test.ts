@@ -76,6 +76,54 @@ describe("activityListSchema", () => {
     expect(broken.user_avatar).toEqual({ full: "", thumb: "" });
     expect(broken.favorite_count).toBe(0);
   });
+
+  it("has no attached image when bp_media_ids/feature_image are absent", () => {
+    const [item] = activityListSchema.parse(rawSample);
+    expect(item.bp_media_ids).toBeNull();
+    expect(item.bb_activity_post_feature_image).toBeNull();
+  });
+
+  it("parses attached photos (bp_media_ids)", () => {
+    const [item] = activityListSchema.parse([
+      {
+        ...rawSample[0],
+        bp_media_ids: [
+          {
+            id: 9,
+            attachment_data: {
+              full: "https://example.test/full.jpg",
+              activity_thumb: "https://example.test/thumb.jpg",
+            },
+          },
+        ],
+      },
+    ]);
+    expect(item.bp_media_ids).toHaveLength(1);
+    expect(item.bp_media_ids?.[0].attachment_data.activity_thumb).toBe(
+      "https://example.test/thumb.jpg",
+    );
+  });
+
+  it("treats an empty bb_activity_post_feature_image array as no feature image", () => {
+    const [item] = activityListSchema.parse([
+      { ...rawSample[0], bb_activity_post_feature_image: [] },
+    ]);
+    expect(item.bb_activity_post_feature_image).toBeNull();
+  });
+
+  it("parses a feature image object", () => {
+    const [item] = activityListSchema.parse([
+      {
+        ...rawSample[0],
+        bb_activity_post_feature_image: {
+          url: "https://example.test/full.png",
+          medium: "https://example.test/medium.png",
+          thumb: "https://example.test/thumb.png",
+        },
+      },
+    ]);
+    expect(item.bb_activity_post_feature_image?.medium).toBe("https://example.test/medium.png");
+  });
 });
 
 describe("activityCommentsResponseSchema", () => {

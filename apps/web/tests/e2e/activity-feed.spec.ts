@@ -48,6 +48,17 @@ test("clicking a comment count expands the thread @smoke", async ({ page }) => {
   await expect(page.getByText("Couldn't load comments.")).not.toBeVisible();
 });
 
+test("an attached post photo renders @smoke", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator("li").first()).toBeVisible();
+
+  // At least one post currently in the feed has an attached photo
+  // (bp_media_ids) or feature image — confirms it actually renders, not
+  // just parses. If this starts failing because no visible post has an
+  // image anymore, that's worth knowing on its own.
+  await expect(page.locator("li .aspect-video img").first()).toBeVisible();
+});
+
 test("clicking a likes count shows who liked it @smoke", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator("li").first()).toBeVisible();

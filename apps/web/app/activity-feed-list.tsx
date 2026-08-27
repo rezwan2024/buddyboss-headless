@@ -88,6 +88,40 @@ function ActivityItem({ activity }: { activity: Activity }) {
               dangerouslySetInnerHTML={{ __html: activity.content.rendered }}
             />
           )}
+          {activity.bp_media_ids && (
+            <div
+              className={`mt-2 grid gap-1 ${activity.bp_media_ids.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}
+            >
+              {activity.bp_media_ids.map((media) => (
+                <div
+                  key={media.id}
+                  className="relative aspect-video overflow-hidden rounded bg-black/5 dark:bg-white/5"
+                >
+                  <Image
+                    src={media.attachment_data.activity_thumb || media.attachment_data.full}
+                    alt=""
+                    fill
+                    sizes="(max-width: 672px) 100vw, 672px"
+                    className="object-cover"
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+          {!activity.bp_media_ids && activity.bb_activity_post_feature_image?.url && (
+            <div className="relative mt-2 aspect-video overflow-hidden rounded bg-black/5 dark:bg-white/5">
+              <Image
+                src={
+                  activity.bb_activity_post_feature_image.medium ||
+                  activity.bb_activity_post_feature_image.url
+                }
+                alt=""
+                fill
+                sizes="(max-width: 672px) 100vw, 672px"
+                className="object-cover"
+              />
+            </div>
+          )}
           <div className="mt-1 flex items-center gap-1 text-xs text-black/40 dark:text-white/40">
             {activity.comment_count > 0 ? (
               <button
