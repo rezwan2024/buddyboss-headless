@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState, useTransition } from "react";
 import { logoutAction } from "./auth-actions";
 
 interface DisplayUser {
@@ -29,18 +29,35 @@ function readUserCookie(): DisplayUser | null {
 
 export default function AuthStatus() {
   const [user, setUser] = useState<DisplayUser | null | undefined>(undefined);
+  const [isLoggingOut, startLogout] = useTransition();
   const pathname = usePathname();
+  const router = useRouter();
 
   // AuthStatus lives in the root layout, which App Router keeps mounted
   // across navigations — so a plain mount-only effect would never notice a
   // login that redirects from /login to /. Re-checking on every pathname
-  // change catches that. It does NOT catch logout, which redirects back to
-  // the same "/" it started from — handled instead by the optimistic
-  // setUser(null) in the logout click handler below.
+  // change catches that. It does NOT catch logout, which stays on the same
+  // "/" it started from — handled instead in handleLogout below.
   // biome-ignore lint/correctness/useExhaustiveDependencies: pathname is a deliberate re-run trigger, not read in the body
   useEffect(() => {
     setUser(readUserCookie());
   }, [pathname]);
+
+  function handleLogout() {
+    // Calling the action directly (not via a plain `<form action>`) so we
+    // control exactly when local state updates relative to the request.
+    // An earlier version set state synchronously in the button's onClick —
+    // that unmounted this component's own <form> mid-submission (the
+    // browser was still processing the native submit when React's
+    // re-render tore the form out of the DOM), so the browser silently
+    // canceled the request and logout never actually happened. Updating
+    // state only after the action's promise resolves avoids that race.
+    startLogout(async () => {
+      await logoutAction();
+      setUser(null);
+      router.refresh(); // re-fetch server-rendered data (e.g. "/") as anonymous
+    });
+  }
 
   if (user === undefined) return null; // not yet hydrated — avoid a flash of the wrong state
 
@@ -55,15 +72,14 @@ export default function AuthStatus() {
   return (
     <span className="flex items-center gap-2">
       <span>{user.name}</span>
-      <form action={logoutAction}>
-        <button
-          type="submit"
-          onClick={() => setUser(null)}
-          className="hover:text-black dark:hover:text-white"
-        >
-          Log out
-        </button>
-      </form>
+      <button
+        type="button"
+        onClick={handleLogout}
+        disabled={isLoggingOut}
+        className="hover:text-black dark:hover:text-white disabled:opacity-50"
+      >
+        Log out
+      </button>
     </span>
   );
 }

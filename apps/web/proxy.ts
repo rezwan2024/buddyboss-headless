@@ -32,6 +32,12 @@ function decodeJwtExpiry(token: string): number | null {
 export async function proxy(request: NextRequest) {
   const response = NextResponse.next();
 
+  // Server Actions (login/logout) manage the session cookies themselves for
+  // their own request — don't also race that with a proactive refresh here.
+  // A Server Action POST carries this header; a plain page navigation never
+  // does.
+  if (request.headers.has("next-action")) return response;
+
   const accessToken = request.cookies.get(ACCESS_TOKEN_COOKIE)?.value;
   const refreshToken = request.cookies.get(REFRESH_TOKEN_COOKIE)?.value;
 
@@ -53,18 +59,21 @@ export async function proxy(request: NextRequest) {
       cache: "no-store",
     });
 
+    const secure = process.env.NODE_ENV === "production";
+
     if (!res.ok) {
       // Refresh token itself is invalid/expired/revoked — clear the dead
       // session rather than looping through this refresh attempt on every
-      // request until the cookie's own maxAge finally expires.
-      response.cookies.delete(ACCESS_TOKEN_COOKIE);
-      response.cookies.delete(REFRESH_TOKEN_COOKIE);
-      response.cookies.delete(USER_COOKIE);
+      // request until the cookie's own maxAge finally expires. Explicit
+      // matching attributes, not .delete() — see lib/session.ts for why.
+      const expired = { path: "/", maxAge: 0, secure, sameSite: "lax" as const };
+      response.cookies.set(ACCESS_TOKEN_COOKIE, "", { ...expired, httpOnly: true });
+      response.cookies.set(REFRESH_TOKEN_COOKIE, "", { ...expired, httpOnly: true });
+      response.cookies.set(USER_COOKIE, "", { ...expired, httpOnly: false });
       return response;
     }
 
     const tokens = await res.json();
-    const secure = process.env.NODE_ENV === "production";
 
     response.cookies.set(ACCESS_TOKEN_COOKIE, tokens.access_token, {
       httpOnly: true,

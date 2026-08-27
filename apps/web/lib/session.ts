@@ -59,10 +59,20 @@ export async function setSessionCookies(tokens: TokenResponse): Promise<void> {
   );
 }
 
-/** Called from a Server Action — clears all session cookies (logout). */
+/**
+ * Called from a Server Action — clears all session cookies (logout).
+ *
+ * Explicit `.set(name, "", { ...matching attributes, maxAge: 0 })` rather
+ * than `.delete(name)`: a deleting Set-Cookie must match the original
+ * cookie's `path` (and `domain`, unset here) to actually overwrite it — the
+ * `secure`/`sameSite`/`httpOnly` attributes don't have to match for
+ * deletion to take effect, but setting them identically here removes any
+ * doubt rather than relying on `.delete()`'s own defaults matching ours.
+ */
 export async function clearSessionCookies(): Promise<void> {
   const store = await cookies();
-  store.delete(ACCESS_TOKEN_COOKIE);
-  store.delete(REFRESH_TOKEN_COOKIE);
-  store.delete(USER_COOKIE);
+  const expired = { path: "/", maxAge: 0, secure, sameSite: "lax" as const };
+  store.set(ACCESS_TOKEN_COOKIE, "", { ...expired, httpOnly: true });
+  store.set(REFRESH_TOKEN_COOKIE, "", { ...expired, httpOnly: true });
+  store.set(USER_COOKIE, "", { ...expired, httpOnly: false });
 }

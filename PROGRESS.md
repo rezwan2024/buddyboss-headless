@@ -75,6 +75,45 @@ this list whenever a new one is introduced.
 
 ## Session log
 
+### 2026-08-27 — Fixed logout: real bug, worse than the earlier optimistic-UI fix
+
+- User reported logout not working on the deployed site (login worked). My
+  E2E test only checked the client's optimistic UI state, which was true
+  but wrong — it never proved the server actually cleared the session.
+  Strengthened `auth.spec.ts`'s logout test to `page.reload()` afterward and
+  re-check, which reproduced the bug locally immediately (previously it
+  only surfaced in production, by luck of timing).
+- **Root cause**: `<AuthStatus>`'s logout button was `<button
+  onClick={() => setUser(null)}>` inside `<form action={logoutAction}>`.
+  Calling `setUser(null)` synchronously on click triggers a React re-render
+  that switches the component to its "logged out" branch — which unmounts
+  the `<form>` itself, *while the browser is still mid-flight submitting
+  it natively*. The browser cancels the submission (visible only as a
+  console warning: "Form submission canceled because the form is not
+  connected") — `logoutAction` never ran at all. This was the fix I added
+  earlier in the session for the "logout stays on the same page" problem;
+  it silently broke logout itself in the process. Confirmed the actual
+  cause with a throwaway debug spec logging every console message and
+  request during the click — the network tab showed *a* POST, but to a
+  different (unrelated) Server Action triggered by the layout shift, not
+  `logoutAction`.
+- **Fix**: `<AuthStatus>` now calls `logoutAction()` directly (via
+  `useTransition`, not a native `<form action>`), and only updates local
+  state + `router.refresh()` after the action's promise resolves — nothing
+  unmounts mid-submission anymore. `logoutAction` no longer calls
+  `redirect()` itself (that was for the form-based flow); the client
+  handles the UI update since logout always happens from a page the user
+  is already on. Also hardened `clearSessionCookies()`/`proxy.ts`'s cookie
+  clearing to set explicit matching attributes instead of relying on
+  `.delete()`'s own defaults, and made `proxy.ts` skip Server Action
+  requests entirely (detected via the `next-action` header) so it can never
+  race a login/logout action's own cookie writes on the same request —
+  both defensive, not confirmed as contributing to this specific bug, but
+  correct regardless.
+- Lesson for future auth work: an E2E assertion on optimistic client state
+  proves the UI *looks* right, not that the server did the thing. Reload
+  after any action that's supposed to change server-side session state.
+
 ### 2026-08-27 — Phase 3: Auth (JWT plugin, login/logout, session refresh)
 
 - **Plugin** — `wp/plugin-headless/` (new, tracked in git), deployed via a

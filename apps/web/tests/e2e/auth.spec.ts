@@ -20,6 +20,13 @@ test("logging in shows the account in the header and lets you log out @smoke", a
   await page.getByRole("button", { name: "Log out" }).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole("link", { name: "Log in" })).toBeVisible();
+
+  // The check above only proves the *client's* optimistic state updated —
+  // reload from scratch to prove the server actually cleared the session
+  // cookies, not just that the UI looked logged-out for a moment.
+  await page.reload();
+  await expect(page.getByRole("link", { name: "Log in" })).toBeVisible();
+  await expect(page.getByText("Headless Test Account")).not.toBeVisible();
 });
 
 test("wrong password shows an error and stays on the login page @smoke", async ({ page }) => {
