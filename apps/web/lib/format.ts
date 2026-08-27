@@ -9,6 +9,14 @@ export function decodeEntities(text: string): string {
     .replace(/&gt;/g, ">");
 }
 
+/** "First Responders Children's Foundation, Shakeel Ahmad" -> array of decoded names. */
+export function parseReactedNames(reactedNames: string): string[] {
+  return reactedNames
+    .split(",")
+    .map((name) => decodeEntities(name.trim()))
+    .filter(Boolean);
+}
+
 export function timeAgo(iso: string, now: number = Date.now()): string {
   const diffMs = now - new Date(iso).getTime();
   const minutes = Math.round(diffMs / 60_000);

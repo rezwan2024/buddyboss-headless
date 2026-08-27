@@ -68,6 +68,19 @@ this list whenever a new one is introduced.
 
 ## Session log
 
+### 2026-08-27 — Rename favorites to likes, add "who liked" popover
+
+- User pointed out BuddyBoss's UI calls this feature "Like" (matches
+  `bb_reaction_mode: "likes"` in site settings), not "favorite" — the API's
+  internal naming (`favorited`, `favorite_count`) leaked into the display
+  text. Relabeled "N favorites" to "N likes" with a thumb icon (inline SVG,
+  no icon library).
+- Added a "who liked this" popover on click. No new endpoint needed —
+  `reacted_names` (already on every activity item) is the number `0` when
+  there are no likes, or a comma-separated string of display names
+  otherwise. Added `parseReactedNames()` to `lib/format.ts` plus a unit
+  test, and a click-away layer to close the popover.
+
 ### 2026-08-27 — Threaded (nested) comment replies
 
 - User reported a reply-to-a-comment ("ok", replying to "hi") was missing

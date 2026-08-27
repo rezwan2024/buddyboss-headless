@@ -18,6 +18,12 @@ const looseBoolean = z
   .transform((v) => (typeof v === "string" ? v !== "" && v !== "0" : Boolean(v)))
   .catch(false);
 const looseNumber = z.coerce.number().catch(0);
+// `reacted_names` comes back as the number 0 (no likes) or a comma-separated
+// string of display names (who liked) when there's at least one.
+const reactedNames = z
+  .union([z.string(), z.number()])
+  .transform((v) => (typeof v === "string" ? v : ""))
+  .catch("");
 
 export const activityAvatarSchema = z
   .object({
@@ -44,6 +50,7 @@ const activityFieldsSchema = z.object({
   favorited: looseBoolean,
   can_favorite: looseBoolean,
   favorite_count: looseNumber,
+  reacted_names: reactedNames,
   can_comment: looseBoolean,
   comment_count: looseNumber,
 });

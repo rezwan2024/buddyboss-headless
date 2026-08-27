@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decodeEntities, timeAgo } from "./format";
+import { decodeEntities, parseReactedNames, timeAgo } from "./format";
 
 describe("decodeEntities", () => {
   it("decodes the entities BuddyBoss actually sends", () => {
@@ -11,6 +11,18 @@ describe("decodeEntities", () => {
 
   it("leaves plain text untouched", () => {
     expect(decodeEntities("Shakeel Ahmad")).toBe("Shakeel Ahmad");
+  });
+});
+
+describe("parseReactedNames", () => {
+  it("splits, trims, and decodes entities in a comma-separated name list", () => {
+    expect(parseReactedNames("First Responders Children&#039;s Foundation, Shakeel Ahmad")).toEqual(
+      ["First Responders Children's Foundation", "Shakeel Ahmad"],
+    );
+  });
+
+  it("returns an empty array for an empty string", () => {
+    expect(parseReactedNames("")).toEqual([]);
   });
 });
 

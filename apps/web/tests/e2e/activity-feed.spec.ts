@@ -47,3 +47,17 @@ test("clicking a comment count expands the thread @smoke", async ({ page }) => {
   await expect(page.getByText("No comments yet.")).not.toBeVisible();
   await expect(page.getByText("Couldn't load comments.")).not.toBeVisible();
 });
+
+test("clicking a likes count shows who liked it @smoke", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator("li").first()).toBeVisible();
+
+  // Only items with favorite_count > 0 render as a clickable button.
+  const likesButton = page.getByRole("button", { name: /\d+ likes/ }).first();
+  await likesButton.scrollIntoViewIfNeeded();
+  await likesButton.click();
+
+  // reacted_names always has at least one name when favorite_count > 0, so
+  // the popover should never fall back to the generic "Liked by N" text.
+  await expect(page.getByText(/^Liked by \d+$/)).not.toBeVisible();
+});
