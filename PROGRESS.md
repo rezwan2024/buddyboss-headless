@@ -75,6 +75,26 @@ this list whenever a new one is introduced.
 
 ## Session log
 
+### 2026-08-27 — Account menu: profile icon + hover dropdown
+
+- User asked to replace the "Name · Log out" header text with a profile
+  icon that opens a hover dropdown (account name, "Profile" → the user's
+  own `/members/[id]`, "Log out"). Implemented with CSS `group`/
+  `group-hover` (no JS-driven open state needed) — a generic person-icon
+  SVG trigger, no avatar image, since fetching one would mean extending the
+  WP plugin's login/refresh response and redeploying just for this; the
+  existing `/members/[id]` route already covers the profile link with no
+  backend change.
+- Updated `auth.spec.ts` for the new interaction shape (hover the trigger,
+  then find the name/links inside the panel) and added a new test for the
+  Profile link. Hit real test flakiness here: hovering then immediately
+  clicking a dropdown item raced the CSS transition — fixed by explicitly
+  waiting for the target to be visible before clicking, the standard
+  pattern for hover-menu tests. 24/24 stable across repeated clean runs;
+  saw a batch of unrelated timeouts once when running the full suite three
+  times back-to-back with no server restart in between (matches the
+  known cold-compile pattern under resource pressure, not a regression).
+
 ### 2026-08-27 — Fixed logout: real bug, worse than the earlier optimistic-UI fix
 
 - User reported logout not working on the deployed site (login worked). My

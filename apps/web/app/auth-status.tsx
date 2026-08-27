@@ -70,16 +70,39 @@ export default function AuthStatus() {
   }
 
   return (
-    <span className="flex items-center gap-2">
-      <span>{user.name}</span>
+    <div className="group relative">
       <button
         type="button"
-        onClick={handleLogout}
-        disabled={isLoggingOut}
-        className="hover:text-black dark:hover:text-white disabled:opacity-50"
+        aria-label={`Account menu for ${user.name}`}
+        className="flex h-8 w-8 items-center justify-center rounded-full bg-black/10 text-black/60 hover:bg-black/20 dark:bg-white/10 dark:text-white/60 dark:hover:bg-white/20"
       >
-        Log out
+        <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="h-5 w-5">
+          <path d="M10 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 2c-4.42 0-8 2.24-8 5v1h16v-1c0-2.76-3.58-5-8-5Z" />
+        </svg>
       </button>
-    </span>
+      {/* No gap between trigger and panel (top-full, no margin) so hover
+          doesn't drop out while the pointer crosses between them. */}
+      <div className="invisible absolute right-0 top-full z-20 w-40 pt-1 opacity-0 transition-opacity group-hover:visible group-hover:opacity-100">
+        <div className="overflow-hidden rounded border border-black/10 bg-white text-sm shadow-lg dark:border-white/10 dark:bg-neutral-900">
+          <p className="truncate border-b border-black/10 px-3 py-2 font-medium text-black/80 dark:border-white/10 dark:text-white/80">
+            {user.name}
+          </p>
+          <Link
+            href={`/members/${user.id}`}
+            className="block px-3 py-2 text-black/70 hover:bg-black/5 dark:text-white/70 dark:hover:bg-white/10"
+          >
+            Profile
+          </Link>
+          <button
+            type="button"
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            className="block w-full px-3 py-2 text-left text-black/70 hover:bg-black/5 disabled:opacity-50 dark:text-white/70 dark:hover:bg-white/10"
+          >
+            Log out
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
