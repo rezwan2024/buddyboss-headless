@@ -12,7 +12,7 @@ function MemberCard({ member }: { member: Member }) {
   return (
     <li>
       <Link
-        href={member.link || "#"}
+        href={`/members/${member.id}`}
         className="flex items-center gap-3 rounded p-2 hover:bg-black/5 dark:hover:bg-white/5"
       >
         <Image

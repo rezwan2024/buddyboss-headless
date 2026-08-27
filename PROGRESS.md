@@ -70,6 +70,20 @@ this list whenever a new one is introduced.
 
 ## Session log
 
+### 2026-08-27 — Member profile page (fixing a BFF architecture leak)
+
+- User spotted that clicking a member in the directory navigated to the raw
+  WordPress domain (`st2-rezwan.hz2.developbb.dev/members/...`) — the API's
+  `link` field was used directly as the href. That breaks the core rule in
+  `CLAUDE.md`: the browser never talks to WordPress directly. Fixed by
+  linking to an internal route (`/members/[id]`) and building a minimal
+  profile page (avatar, cover, name, member-since, last-active) backed by
+  `GET /buddyboss/v1/members/{id}`, rather than leaving a dead link.
+  Grepped the rest of the app for the same pattern (`.link`/`.user_link`
+  used as an href) — this was the only leak.
+- `memberDetailSchema` extends `memberSchema` with `cover_url`; xprofile
+  fields are skipped for now (not needed for this minimal profile).
+
 ### 2026-08-27 — Member directory (Phase 2 begins)
 
 - User asked to like posts from the deployed frontend — explained that

@@ -19,3 +19,12 @@ export const memberSchema = z.object({
 export type Member = z.infer<typeof memberSchema>;
 
 export const memberListSchema = z.array(memberSchema);
+
+// GET /buddyboss/v1/members/{id} — same core fields as the list, plus a
+// cover image. Also carries xprofile (custom profile fields), skipped here;
+// add it when a screen needs it.
+export const memberDetailSchema = memberSchema.extend({
+  cover_url: z.string().catch(""),
+});
+
+export type MemberDetail = z.infer<typeof memberDetailSchema>;

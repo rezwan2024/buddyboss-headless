@@ -1,4 +1,4 @@
-import { memberListSchema } from "@buddyboss-headless/types";
+import { memberDetailSchema, memberListSchema } from "@buddyboss-headless/types";
 import { describe, expect, it } from "vitest";
 
 const rawSample = [
@@ -38,5 +38,20 @@ describe("memberListSchema", () => {
     expect(items[1].id).toBe(1);
     expect(items[1].is_wp_admin).toBe(true);
     expect(items[1].avatar_urls).toEqual({ full: "", thumb: "" });
+  });
+});
+
+describe("memberDetailSchema", () => {
+  it("parses the single-member response, including the cover image", () => {
+    const member = memberDetailSchema.parse({
+      ...rawSample[0],
+      cover_url: "https://example.test/cover-image.png",
+    });
+    expect(member.cover_url).toBe("https://example.test/cover-image.png");
+  });
+
+  it("falls back to an empty id (not a throw) for a malformed response", () => {
+    const member = memberDetailSchema.parse({ error: "rest_no_route" });
+    expect(member.id).toBe(0);
   });
 });

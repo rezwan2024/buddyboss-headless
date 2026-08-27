@@ -35,3 +35,15 @@ test("members link in the header navigates to the directory @smoke", async ({ pa
   await expect(page).toHaveURL(/\/members$/);
   await expect(page.getByRole("heading", { name: "Members" })).toBeVisible();
 });
+
+test("clicking a member opens their profile, not the WordPress site @smoke", async ({ page }) => {
+  await page.goto("/members");
+  const firstCard = page.locator("li a").first();
+  const memberName = await firstCard.locator("p").first().innerText();
+
+  await firstCard.click();
+
+  // Must stay on our own domain — never navigate to the WordPress backend.
+  await expect(page).toHaveURL(/\/members\/\d+$/);
+  await expect(page.getByRole("heading", { name: memberName })).toBeVisible();
+});
