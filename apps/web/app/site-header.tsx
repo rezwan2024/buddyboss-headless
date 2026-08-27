@@ -31,6 +31,9 @@ export default async function SiteHeader() {
           <Link href="/members" className="hover:text-black dark:hover:text-white">
             Members
           </Link>
+          <Link href="/groups" className="hover:text-black dark:hover:text-white">
+            Groups
+          </Link>
         </nav>
       </div>
     </header>

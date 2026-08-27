@@ -11,10 +11,10 @@ reasoning in `DECISIONS.md`, rules in `CLAUDE.md`.
 ## Current state
 
 **Phase:** 2 — Public reads — in progress. Live at https://buddyboss.vercel.app.
-Done: activity feed (Phase 1), member directory with search. Remaining:
-profile, blog, groups, forums.
-**Next task:** Ask which Phase 2 screen to build next (profile, blog, groups,
-or forums) — no default assumed, user has been picking each one explicitly.
+Done: activity feed, member directory + profile, groups directory + detail
+(with member list). Remaining: blog, forums.
+**Next task:** Ask which Phase 2 screen to build next (blog or forums) — no
+default assumed, user has been picking each one explicitly.
 
 ## Blockers
 
@@ -69,6 +69,25 @@ this list whenever a new one is introduced.
 ---
 
 ## Session log
+
+### 2026-08-27 — Groups directory + detail page
+
+- Built `/groups` (directory, infinite scroll + search — same pattern as
+  `/members`) and `/groups/[id]` (cover, avatar, name, status, member
+  count, description, and the group's member list). Both backed by
+  `GET /buddyboss/v1/groups` / `/groups/{id}` / `/groups/{id}/members`.
+- Extracted `MemberCard` out of `members-list.tsx` into a shared
+  `app/member-card.tsx` so the group detail page's member list could reuse
+  it directly — group members are literally member objects.
+- Added a "Groups" link to the header nav.
+- Learned from the earlier `link`-field mistake on the members page: group
+  cards were built pointing at `/groups/${id}` (internal route) from the
+  start, never `group.link` — grepped to confirm no `.link`/`.user_link`
+  leaked into an href.
+- Unit test for `groupListSchema` (loose `members_count`) and 4 new E2E
+  tests (directory renders, search narrows to a real group, nav link, and
+  detail page shows both the group and its members) — all passed against
+  the live API on the first run, stable across two full suite runs.
 
 ### 2026-08-27 — Member profile page (fixing a BFF architecture leak)
 

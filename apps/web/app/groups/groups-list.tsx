@@ -1,22 +1,18 @@
 "use client";
 
-import type { Member } from "@buddyboss-headless/types";
+import type { Group } from "@buddyboss-headless/types";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { loadMembersPage } from "../actions";
-import MemberCard from "../member-card";
+import { loadGroupsPage } from "../actions";
+import GroupCard from "./group-card";
 
-export interface MembersListProps {
-  initialItems: Member[];
+export interface GroupsListProps {
+  initialItems: Group[];
   initialTotal: number;
   initialPages: number;
 }
 
-export default function MembersList({
-  initialItems,
-  initialTotal,
-  initialPages,
-}: MembersListProps) {
+export default function GroupsList({ initialItems, initialTotal, initialPages }: GroupsListProps) {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
@@ -26,8 +22,8 @@ export default function MembersList({
   }, [search]);
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isFetching } = useInfiniteQuery({
-    queryKey: ["members", debouncedSearch],
-    queryFn: ({ pageParam }) => loadMembersPage(pageParam, debouncedSearch),
+    queryKey: ["groups", debouncedSearch],
+    queryFn: ({ pageParam }) => loadGroupsPage(pageParam, debouncedSearch),
     initialPageParam: 1,
     getNextPageParam: (lastPage, allPages) =>
       allPages.length < lastPage.pages ? allPages.length + 1 : undefined,
@@ -65,21 +61,21 @@ export default function MembersList({
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search members…"
+          placeholder="Search groups…"
           className="w-full rounded border border-black/10 bg-transparent px-3 py-2 text-sm dark:border-white/10"
         />
       </div>
       <p className="mt-3 text-sm text-black/50 dark:text-white/50">
         {isFetching && items.length === 0
           ? "Searching…"
-          : `${total} member${total === 1 ? "" : "s"}`}
+          : `${total} group${total === 1 ? "" : "s"}`}
       </p>
       {items.length === 0 && !isFetching ? (
-        <p className="mt-8 text-black/50 dark:text-white/50">No members found.</p>
+        <p className="mt-8 text-black/50 dark:text-white/50">No groups found.</p>
       ) : (
-        <ul className="mt-2 grid grid-cols-1 gap-1 sm:grid-cols-2">
-          {items.map((member) => (
-            <MemberCard key={member.id} member={member} />
+        <ul className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {items.map((group) => (
+            <GroupCard key={group.id} group={group} />
           ))}
         </ul>
       )}
