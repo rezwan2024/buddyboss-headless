@@ -68,6 +68,25 @@ this list whenever a new one is introduced.
 
 ## Session log
 
+### 2026-08-27 — Clickable comment threads
+
+- User reported "N comments" was static text, unlike the live BuddyBoss site
+  where it's clickable and expands the thread. Made it a toggle button
+  (only when `comment_count > 0`) that fetches and shows the comments —
+  read-only, view only. Comments reuse `activitySchema` since
+  `GET /buddyboss/v1/activity/{id}/comment` returns items shaped exactly
+  like activity items, nested under `{ comment_count, comments: [...] }`.
+  Deliberately did **not** add a comment composer/reply box — posting needs
+  auth (Phase 3), and a non-functional input would be worse than no input.
+- New: `getActivityComments()` in api-client, `loadActivityComments` Server
+  Action, `<ActivityComments>` client component (TanStack `useQuery`, lazy —
+  only fetches once expanded).
+- Added an E2E test clicking a real comment button and asserting real
+  content renders (not the empty/error fallback). First version was flaky —
+  asserted the "Loading comments…" state was visible before checking it
+  disappeared, but a fast/cached response could resolve before the
+  assertion ran. Fixed by only waiting for it to be gone.
+
 ### 2026-08-27 — Infinite scroll on the activity feed
 
 - User reported the feed only ever showed the first 20 of 195 items with no

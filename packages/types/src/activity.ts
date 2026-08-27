@@ -51,3 +51,12 @@ export const activitySchema = z.object({
 export type Activity = z.infer<typeof activitySchema>;
 
 export const activityListSchema = z.array(activitySchema);
+
+// GET /buddyboss/v1/activity/{id}/comment — comments have the same shape as
+// an activity item (type: "activity_comment"), just nested under this envelope.
+export const activityCommentsResponseSchema = z.object({
+  comment_count: looseNumber,
+  comments: z.array(activitySchema).catch([]),
+});
+
+export type ActivityCommentsResponse = z.infer<typeof activityCommentsResponseSchema>;

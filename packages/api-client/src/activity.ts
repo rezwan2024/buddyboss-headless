@@ -1,6 +1,6 @@
-import { activityListSchema } from "@buddyboss-headless/types";
-import type { Activity } from "@buddyboss-headless/types";
-import { type WpList, wpFetchList } from "./wp-fetch";
+import { activityCommentsResponseSchema, activityListSchema } from "@buddyboss-headless/types";
+import type { Activity, ActivityCommentsResponse } from "@buddyboss-headless/types";
+import { type WpList, wpFetchJson, wpFetchList } from "./wp-fetch";
 
 export interface GetActivityFeedParams {
   page?: number;
@@ -20,4 +20,13 @@ export async function getActivityFeed(
   return wpFetchList(`/buddyboss/v1/activity?${query}`, (body) => activityListSchema.parse(body), {
     next: { revalidate: 30, tags: ["activity"] },
   });
+}
+
+/** Comments on one activity item — `GET /buddyboss/v1/activity/{id}/comment`. Public, no auth. */
+export async function getActivityComments(activityId: number): Promise<ActivityCommentsResponse> {
+  return wpFetchJson(
+    `/buddyboss/v1/activity/${activityId}/comment`,
+    (body) => activityCommentsResponseSchema.parse(body),
+    { next: { revalidate: 30, tags: ["activity"] } },
+  );
 }

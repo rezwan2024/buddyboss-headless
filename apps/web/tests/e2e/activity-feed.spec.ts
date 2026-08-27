@@ -27,3 +27,23 @@ test("scrolling loads more activity @smoke", async ({ page }) => {
     .poll(async () => page.locator("li").count(), { timeout: 5000 })
     .toBeGreaterThan(initialCount);
 });
+
+test("clicking a comment count expands the thread @smoke", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator("li").first()).toBeVisible();
+
+  // Only items with comment_count > 0 render as a clickable button.
+  const commentButton = page.getByRole("button", { name: /\d+ comments/ }).first();
+  await commentButton.scrollIntoViewIfNeeded();
+  await commentButton.click();
+
+  // The loading state is transient and may resolve before we can observe it
+  // (e.g. a cached response) — just wait for it to be gone either way.
+  await expect(page.getByText("Loading comments…")).toBeHidden();
+
+  // Real comment content, not the "No comments yet."/error fallback —
+  // clicking a button that says "N comments" (N > 0) should always resolve
+  // to actual comments.
+  await expect(page.getByText("No comments yet.")).not.toBeVisible();
+  await expect(page.getByText("Couldn't load comments.")).not.toBeVisible();
+});

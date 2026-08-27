@@ -4,10 +4,13 @@ import { decodeEntities, timeAgo } from "@/lib/format";
 import type { Activity } from "@buddyboss-headless/types";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import Image from "next/image";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { loadActivityPage } from "./actions";
+import ActivityComments from "./activity-comments";
 
 function ActivityItem({ activity }: { activity: Activity }) {
+  const [commentsOpen, setCommentsOpen] = useState(false);
+
   return (
     <li className="border-b border-black/10 py-4 last:border-0 dark:border-white/10">
       <div className="flex gap-3">
@@ -31,8 +34,20 @@ function ActivityItem({ activity }: { activity: Activity }) {
             />
           )}
           <p className="mt-1 text-xs text-black/40 dark:text-white/40">
-            {activity.comment_count} comments · {activity.favorite_count} favorites
+            {activity.comment_count > 0 ? (
+              <button
+                type="button"
+                onClick={() => setCommentsOpen((open) => !open)}
+                className="underline-offset-2 hover:underline"
+              >
+                {activity.comment_count} comments
+              </button>
+            ) : (
+              "0 comments"
+            )}{" "}
+            · {activity.favorite_count} favorites
           </p>
+          {commentsOpen && <ActivityComments activityId={activity.id} />}
         </div>
       </div>
     </li>
