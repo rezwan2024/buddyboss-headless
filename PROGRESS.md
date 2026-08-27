@@ -20,9 +20,19 @@ already in place, so probably start there.
 
 ## Blockers
 
-None. The Playwright MCP (`.mcp.json`) is confirmed working in-session as of
-this session — used it directly to log in, post, and screenshot the result
-against the live API.
+One open, unconfirmed: the user reported a production-only crash ("Minified
+React error #441" — a generic Server Components render error) when posting
+an activity with an image. Not reproduced directly despite 6 live attempts;
+shipped a scoped fix (retry idempotent WP GETs once on a network-level
+failure, see DECISIONS.md) based on circumstantial evidence — this
+project's own `pnpm verify` independently hit `ECONNRESET` against the
+remote WP host in the same session. **If the user hits it again**, start
+`vercel logs buddyboss.vercel.app --follow` *before* they reproduce it, so
+the actual digest/stack trace is caught live instead of scrolling past.
+
+The Playwright MCP (`.mcp.json`) is confirmed working in-session — used it
+directly to log in, post, and screenshot the result against both localhost
+and the live production URL.
 
 ## How to see the frontend
 
@@ -70,6 +80,32 @@ this list whenever a new one is introduced.
 ---
 
 ## Session log
+
+### 2026-08-28 — Investigate production crash on image posts, ship a scoped retry
+
+- User hit "Minified React error #441" on `buddyboss.vercel.app` after
+  posting with an image — the whole feed broke, not just the composer.
+  Decoded the error against `facebook/react`'s `codes.json` (react.dev's
+  own error-decoder page 404s without exact args): #441 is a generic
+  "error occurred in the Server Components render" with details redacted
+  in production.
+- Tried to reproduce live against production 6 times (small test image,
+  then a realistic 1920×1080 one, both single and rapid-fire) — all
+  succeeded. Tried tailing `vercel logs` for the real stack trace but
+  didn't have it running *before* a real occurrence, so never caught one.
+- Went on circumstantial evidence instead: this session's own `pnpm verify`
+  run independently hit `ECONNRESET` against the remote WP host multiple
+  times, unprompted — a real, pre-existing flakiness in that connection.
+  An image/video/document post makes 3-4 sequential WP requests (upload,
+  attach, caption, plus Next's automatic post-action refetch) vs. 1 for
+  text-only, so it's proportionally more exposed.
+- Shipped `packages/api-client/src/wp-fetch.ts`: retry once on a
+  network-level `fetch()` failure, scoped to `GET`/`HEAD` only (retrying a
+  POST could double-post if it reached WordPress but the response was
+  lost). `pnpm verify` and `pnpm build` still pass; deployed and re-aliased
+  `buddyboss.vercel.app`.
+- **Not confirmed as the actual fix** — see Blockers above for what to do
+  if it recurs.
 
 ### 2026-08-28 — Phase 4: post to the activity feed, with an optional photo/video/document
 
