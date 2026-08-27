@@ -7,6 +7,7 @@ import {
   getGroupMembers,
   getGroups,
   getMembers,
+  getPosts,
   getRepliesWithAuthors,
   getTopicsWithAuthors,
 } from "@buddyboss-headless/api-client";
@@ -51,4 +52,9 @@ export async function loadTopicsPage(forumId: number, page: number) {
 /** Called client-side by the infinite-scroll reply list on a topic's page. */
 export async function loadRepliesPage(topicId: number, page: number) {
   return getRepliesWithAuthors(topicId, { page, perPage: PER_PAGE });
+}
+
+/** Called client-side by the infinite-scroll blog list, including on search. */
+export async function loadPostsPage(page: number, search: string) {
+  return getPosts({ page, perPage: PER_PAGE, search: search || undefined });
 }

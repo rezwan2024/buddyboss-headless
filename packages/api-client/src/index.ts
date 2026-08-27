@@ -3,4 +3,5 @@ export * from "./activity";
 export * from "./forums";
 export * from "./groups";
 export * from "./members";
+export * from "./posts";
 export * from "./site";

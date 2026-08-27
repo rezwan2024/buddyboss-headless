@@ -10,11 +10,13 @@ reasoning in `DECISIONS.md`, rules in `CLAUDE.md`.
 
 ## Current state
 
-**Phase:** 2 — Public reads — in progress. Live at https://buddyboss.vercel.app.
-Done: activity feed, member directory + profile, groups directory + detail,
-forums (list, forum + topics, topic + replies). Remaining: blog.
-**Next task:** Build the blog (list + single post via `wp/v2/posts`) — the
-last unbuilt Phase 2 screen.
+**Phase:** 2 — Public reads — done. Live at https://buddyboss.vercel.app: blog,
+member directory + profile, activity feed, groups directory + detail, forums
+(list, forum + topics, topic + replies). You can browse the whole public
+community without authenticating, per Phase 2's done condition in `PLAN.md`.
+**Next task:** Phase 3 — Auth (JWT plugin on WordPress, login/logout,
+httpOnly cookies). Confirm with the user before starting — it's custom PHP on
+the live site and security-sensitive, unlike everything so far.
 
 ## Blockers
 
@@ -69,6 +71,26 @@ this list whenever a new one is introduced.
 ---
 
 ## Session log
+
+### 2026-08-27 — Blog (Phase 2 complete)
+
+- Built `/blog` (list, infinite scroll + search) and `/blog/[slug]` (single
+  post). First screen backed by `wp/v2/posts` (WordPress core) instead of
+  `buddyboss/v1` — per `CLAUDE.md`, the blog uses core, not a BuddyBoss route.
+- Much smoother than forums: `?_embed=author,wp:featuredmedia` resolves the
+  author's name/avatar and the featured image in the same request — no
+  batched lookup or N+1 workaround needed here, unlike topics/replies.
+  `postAuthorName`/`postAuthorAvatar`/`postFeaturedImage` helpers in
+  `packages/types/src/post.ts` centralize pulling those out of `_embedded`
+  so callers don't repeat the optional-chaining.
+- Single post route resolves by slug (`?slug={slug}`), not numeric ID —
+  more natural for a blog URL than `/blog/673`.
+- Reused `<AuthorAvatar>` from the forums work for the post byline avatar.
+- Added unit tests for the schema (including the `_embedded`-absent case,
+  when `_embed` isn't requested) and 4 E2E tests — all passed twice in a row
+  on a fresh dev server.
+- **Phase 2 is done** — every screen in `PLAN.md`'s Phase 2 list is live:
+  blog, members, profile, activity, groups, forums.
 
 ### 2026-08-27 — Forums (list, topics, replies)
 
