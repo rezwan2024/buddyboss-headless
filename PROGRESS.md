@@ -10,7 +10,7 @@ reasoning in `DECISIONS.md`, rules in `CLAUDE.md`.
 
 ## Current state
 
-**Phase:** 1 — Scaffold — done. Live at https://web-bb-0056.vercel.app.
+**Phase:** 1 — Scaffold — done. Live at https://buddyboss.vercel.app.
 **Next task:** Phase 2 — public reads (blog, members, profile, groups, forums;
 activity feed already ships from Phase 1). See `PLAN.md` Phase 2.
 
@@ -31,14 +31,21 @@ running. Claude Code can also open the page itself once the Playwright MCP
 reconnects (see Blockers).
 
 **Live URL:** https://buddyboss.vercel.app — confirmed rendering real activity
-feed data (195 updates total, matching the live site). Vercel project
-`buddyboss` (renamed from `web`) under the `bb-0056` team, GitHub-connected to
-`rezwan2024/buddyboss-headless`, root directory `apps/web`, auto-deploys on
-push to `main`. `buddyboss.vercel.app` is a project-level production alias,
-so it tracks new deploys automatically — no need to re-alias after each push.
-SSO deployment protection was on by default (redirected to a
-Vercel login page) — disabled so the URL is publicly viewable, per user
-confirmation.
+feed data. Vercel project `buddyboss` (renamed from `web`) under the `bb-0056`
+team, GitHub-connected to `rezwan2024/buddyboss-headless`, root directory
+`apps/web`, auto-deploys on push to `main`. SSO deployment protection was on
+by default (redirected to a Vercel login page) — disabled so the URL is
+publicly viewable, per user confirmation.
+
+**Important gotcha:** `buddyboss.vercel.app` is a manually-set deployment
+alias (`vercel alias set <deployment-url> buddyboss.vercel.app`), **not** a
+tracked project domain — it does NOT auto-follow new production deploys. Only
+the auto-generated `buddyboss-bb-0056.vercel.app` and
+`buddyboss-git-main-bb-0056.vercel.app` update automatically. After a
+meaningful push, re-run `vercel alias set <latest-prod-deployment-url>
+buddyboss.vercel.app` (get the latest URL from `vercel ls buddyboss`) or the
+short URL will silently serve a stale build. This bit us once already this
+session — got the alias wrong in an earlier version of this note too.
 
 ## Open questions
 
@@ -60,6 +67,23 @@ this list whenever a new one is introduced.
 ---
 
 ## Session log
+
+### 2026-08-27 — Dark mode fix + Vercel short URL
+
+- User reported unreadable text on https://buddyboss.vercel.app in Chrome
+  Incognito (dark OS theme). Cause: `globals.css` already defined
+  `--background`/`--foreground` CSS vars that flip under
+  `prefers-color-scheme: dark`, but every component used hardcoded
+  `text-black/*`, `border-black/*`, `bg-black/*` Tailwind utilities that don't
+  adapt — black-on-black in dark mode. Fixed by adding `dark:` variants
+  throughout `app/page.tsx`, `app/loading.tsx`, `app/error.tsx`, and setting
+  `color-scheme: light dark` on `:root` so the browser doesn't also apply its
+  own forced-dark heuristic on top. Verified dark mode by eye is still owed —
+  Playwright doesn't check this; flagging per `CLAUDE.md`'s manual-review note.
+- Renamed the Vercel project `web` → `buddyboss` and claimed the short alias
+  `buddyboss.vercel.app`. Learned the hard way that a manual
+  `vercel alias set` does **not** auto-follow new deploys the way the
+  project-name-based URLs do — see the gotcha note under Live URL above.
 
 ### 2026-08-27 — Phase 1: Next.js scaffold + activity feed
 
