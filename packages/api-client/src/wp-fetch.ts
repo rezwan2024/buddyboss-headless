@@ -41,6 +41,24 @@ function baseUrl(): string {
   return url.replace(/\/$/, "");
 }
 
+// The remote WP host occasionally resets the connection mid-request
+// (ECONNRESET) — seen independently in this project's own e2e runs, not
+// something specific to any one route. A network-level failure here throws
+// before any response exists, so retrying is only safe for idempotent
+// methods: retrying a POST could double-create if the request actually
+// reached WordPress and only the response was lost in transit.
+const RETRYABLE_METHODS = new Set(["GET", "HEAD"]);
+
+async function fetchWithRetry(url: string, init: RequestInit): Promise<Response> {
+  const method = (init.method ?? "GET").toUpperCase();
+  try {
+    return await fetch(url, init);
+  } catch (err) {
+    if (!RETRYABLE_METHODS.has(method)) throw err;
+    return fetch(url, init);
+  }
+}
+
 /**
  * Raw fetch against `${WP_URL}/wp-json<path>`. Returns the Response
  * unparsed — use `wpFetchJson`/`wpFetchList` when you also want body
@@ -49,7 +67,7 @@ function baseUrl(): string {
 export async function wpFetch(path: string, init: WpFetchInit = {}): Promise<Response> {
   const { accessToken, ...rest } = init;
   const url = `${baseUrl()}/wp-json${path}`;
-  return fetch(url, {
+  return fetchWithRetry(url, {
     ...rest,
     headers: {
       Accept: "application/json",

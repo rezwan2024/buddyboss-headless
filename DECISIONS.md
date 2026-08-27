@@ -23,6 +23,36 @@ Format:
 
 ---
 
+## 2026-08-28 — wp-fetch retries GET/HEAD once on a network-level failure
+
+**Decision:** `packages/api-client/src/wp-fetch.ts`'s `wpFetch()` retries the
+raw `fetch()` call exactly once, only when it throws (a network-level
+failure like a connection reset, not an HTTP error status), and only for
+`GET`/`HEAD` requests.
+**Why:** posting an activity with a photo/video/document reported a
+production-only crash — "Minified React error #441" (decoded via
+`facebook/react`'s `codes.json`: *"An error occurred in the Server
+Components render"*, a generic message with details redacted in
+production). Couldn't get it to recur directly (6 live attempts on
+`buddyboss.vercel.app`, including a realistic 1920×1080 image, all
+succeeded), but this project's own `pnpm verify` run, unprompted, hit
+`ECONNRESET` against the remote WP host multiple times in the same session
+— a real, pre-existing flakiness in that connection, not something specific
+to the new posting code. An image/video/document post makes 3-4 sequential
+requests to WP (upload, attach, caption, plus Next's automatic refetch of
+the page after the Server Action) versus 1 for a text-only post, so it's
+proportionally more exposed to hitting a reset. The crash presented as the
+*whole feed* failing (not an inline composer error) because it happened
+during `page.tsx`'s own `getActivityFeed` call, not inside the try/catch'd
+Server Action.
+**Alternatives:** retrying every request, including writes — rejected: if a
+POST actually reached WordPress and only the response was lost, retrying it
+would double-post. Retry is intentionally scoped to idempotent reads.
+**Consequence:** unverified as the definitive fix (root cause access was
+limited to circumstantial evidence, not a caught stack trace) — if the
+crash recurs after this, the next step is `vercel logs <url> --follow` kept
+running *before* reproducing, to catch the actual digest/stack trace live.
+
 ## 2026-08-28 — Activity posts: one attachment per post, no attach-to-existing-activity
 
 **Decision:** Posting an image/video/document creates its own new activity
