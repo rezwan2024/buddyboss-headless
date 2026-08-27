@@ -130,7 +130,7 @@ Vercel is connected from Phase 1. Every push to `main` deploys automatically.
 There is no manual deploy step and no separate deployment phase — the app is
 always live.
 
-    Local dev   ->  localhost:3000       ->  WP_URL from .env.local
+    Local dev   ->  localhost:3000       ->  WP_URL from apps/web/.env.local
     Vercel      ->  <project>.vercel.app ->  WP_URL from Vercel env vars
 
 Both point at the same BuddyBoss backend for now. That's fine — it's a dev site.
@@ -140,7 +140,7 @@ Rules:
 - **No hardcoded hostnames.** Not in `next.config.js`, not in fetch calls, not in
   image domains. Everything environment-specific is an env var. This is the single
   most common cause of "works locally, breaks on Vercel".
-- **Adding an env var means adding it in two places** — `.env.local` and the
+- **Adding an env var means adding it in two places** — `apps/web/.env.local` and the
   Vercel dashboard. Tell the user when they need to add one; you can't set it for
   them.
 - **Check the deployed build, not just localhost.** Server Components, caching,
@@ -179,7 +179,7 @@ Short version. Full reasoning and the complete log live in `DECISIONS.md`.
 A BuddyBoss-hosted dev site. It is live and shared. All 16 BuddyBoss components
 are active. BuddyBoss Platform Pro is installed.
 
-- Frontend URL for API calls comes from `WP_URL` in `.env.local`
+- Frontend URL for API calls comes from `WP_URL` in `apps/web/.env.local`
 - Credentials live in `.env.deploy` (gitignored) — never read, print, or commit it
 - `docs/routes.txt` lists all 153 registered `buddyboss/v1` routes from this
   actual install. Check it before assuming an endpoint exists.

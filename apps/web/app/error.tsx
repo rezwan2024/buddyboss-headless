@@ -1,0 +1,23 @@
+"use client";
+
+export default function ActivityFeedError({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
+  return (
+    <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-8">
+      <h1 className="text-xl font-semibold text-red-700">Couldn't load the activity feed</h1>
+      <p className="mt-2 text-sm text-black/60">{error.message}</p>
+      <button
+        type="button"
+        onClick={reset}
+        className="mt-4 rounded border border-black/20 px-3 py-1.5 text-sm hover:bg-black/5"
+      >
+        Try again
+      </button>
+    </main>
+  );
+}

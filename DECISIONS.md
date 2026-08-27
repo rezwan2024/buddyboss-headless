@@ -23,6 +23,48 @@ Format:
 
 ---
 
+## 2026-08-27 — pnpm workspace monorepo: `apps/web` + `packages/*`
+
+**Decision:** `apps/web` holds the Next.js app; `packages/types` and
+`packages/api-client` are separate workspace packages it depends on via
+`workspace:*`.
+**Why:** `PLAN.md` already named `packages/types` and `packages/api-client` as
+Phase 1 deliverables, which implies packages separate from the app. Keeping
+the app under `apps/` leaves room for another consumer of the API client later
+without restructuring.
+**Alternatives:** A single flat Next.js app at the repo root with no package
+boundaries — rejected, it doesn't match the two packages the plan calls for.
+Turborepo/Nx — rejected as unneeded ceremony for two small internal packages;
+plain pnpm workspaces are enough.
+**Consequence:** Next.js only auto-loads `.env.local` from its own directory,
+not the repo root — it lives at `apps/web/.env.local`, not `./​.env.local`.
+Updated `CLAUDE.md` to say so explicitly after hitting this once.
+
+## 2026-08-27 — Parse-function callbacks, not `ZodSchema<T>`, in `wp-fetch.ts`
+
+**Decision:** `wpFetchJson`/`wpFetchList` in `packages/api-client` take a
+`(body: unknown) => T` parse callback rather than a zod schema object typed as
+`z.ZodType<T>`/`z.ZodSchema<T>`.
+**Why:** Any schema using `.catch()` (needed everywhere per the loose-types
+gotcha) has an input type that diverges from its output type. Passing such a
+schema through a generic `z.ZodType<T>` parameter made TypeScript infer `T` as
+a mangled type with most fields as `unknown` — real fields failed
+assignability against the clean `Activity` type from `packages/types`, with
+no code-level bug behind it. A plain callback (`(body) => schema.parse(body)`)
+sidesteps zod's generic variance entirely.
+**Alternatives:** Fighting the variance with `z.ZodSchema<T>` (fixes
+`Input = any`) — tried first, didn't fix it. Dropping `.catch()` — rejected,
+it's the documented defense against BuddyBoss's inconsistent types.
+
+## 2026-08-27 — Activity feed as the first vertical slice
+
+**Decision:** The one endpoint wired end-to-end in Phase 1 is the global
+activity feed (`GET /buddyboss/v1/activity`), not blog or members.
+**Why:** It's the endpoint already exercised in Phase 0 (posting/reading test
+activity), has real content on the dev site, and exercises the gotchas
+`CLAUDE.md` calls out — loose booleans, header-based pagination, HTML content
+— in one response shape.
+
 ## 2026-08-27 — Public GitHub repo
 
 **Decision:** The repo at github.com/rezwan2024/buddyboss-headless is public.

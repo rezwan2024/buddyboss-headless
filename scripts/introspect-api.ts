@@ -9,7 +9,7 @@
 //
 // Usage: node scripts/introspect-api.ts
 
-import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -103,7 +103,10 @@ function resolveRoute(route: string): string {
 }
 
 function slugify(route: string): string {
-  return route.replace(/^\//, "").replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return route
+    .replace(/^\//, "")
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 async function main() {

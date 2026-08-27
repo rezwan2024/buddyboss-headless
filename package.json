@@ -1,0 +1,19 @@
+{
+  "name": "buddyboss-headless",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm --filter web build",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "test": "pnpm --filter web test",
+    "test:e2e": "pnpm --filter web test:e2e",
+    "test:e2e:full": "pnpm --filter web test:e2e:full",
+    "verify": "pnpm run typecheck && pnpm run lint && pnpm run test && pnpm run test:e2e",
+    "verify:full": "pnpm run typecheck && pnpm run lint && pnpm run test && pnpm run test:e2e:full"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4"
+  }
+}

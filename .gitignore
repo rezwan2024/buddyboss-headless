@@ -4,3 +4,7 @@ remote/
 node_modules/
 .next/
 docs/samples/
+test-results/
+playwright-report/
+blob-report/
+.vercel

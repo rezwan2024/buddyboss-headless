@@ -10,26 +10,33 @@ reasoning in `DECISIONS.md`, rules in `CLAUDE.md`.
 
 ## Current state
 
-**Phase:** 0 — Harness — done. Next up: Phase 1 — Scaffold.
-**Next task:** Scaffold the Next.js app (App Router, TypeScript strict, Tailwind,
-Biome), `lib/wp-fetch.ts`, connect GitHub repo to Vercel, configure Playwright MCP.
-See `PLAN.md` Phase 1.
+**Phase:** 1 — Scaffold — mostly done, pending confirmation of the first
+GitHub-triggered deploy (this session's changes are about to be pushed).
+**Next task:** After confirming the Vercel deploy from this push succeeds,
+start Phase 2 — public reads (blog, members, profile, groups, forums; activity
+feed already ships from Phase 1). See `PLAN.md` Phase 2.
 
 ## Blockers
 
-None.
+None. One follow-up: the Playwright MCP is configured in `.mcp.json` but this
+session hasn't reconnected to MCP servers since — a fresh session (or an
+explicit MCP reload) is needed before Claude Code can drive the browser
+directly. Until then, the Playwright *test* smoke suite (`pnpm test:e2e`)
+covers rendering + console-error checks.
 
 ## How to see the frontend
 
-Not scaffolded yet — from Phase 1 onward:
-
     pnpm dev        # then open http://localhost:3000
 
-Keep it running in its own terminal. Claude Code can also open the page itself
-once the Playwright MCP is configured in Phase 1.
+Keep it running in its own terminal — don't start a second one if it's already
+running. Claude Code can also open the page itself once the Playwright MCP
+reconnects (see Blockers).
 
-**Live URL:** not deployed yet. Vercel gets connected in Phase 1; after that every
-push to `main` deploys automatically. Record the URL here once it exists.
+**Live URL:** Vercel project `web` under the `bb-0056` team, GitHub-connected
+to `rezwan2024/buddyboss-headless` with root directory `apps/web`. No
+successful deploy yet as of this entry — pending the first push of this
+session's work. Record the actual `*.vercel.app` URL here once a deploy
+succeeds.
 
 ## Open questions
 
@@ -40,16 +47,59 @@ push to `main` deploys automatically. Record the URL here once it exists.
 
 ## Env vars
 
-Every entry here must exist in **both** `.env.local` and the Vercel dashboard.
-Add to this list whenever a new one is introduced.
+Every entry here must exist in **both** `apps/web/.env.local` and the Vercel
+dashboard (all three environments: Production, Preview, Development). Add to
+this list whenever a new one is introduced.
 
 | Var | Purpose |
 |---|---|
-| `WP_URL` | BuddyBoss REST base URL — set locally to `https://st2-rezwan.hz2.developbb.dev` in `.env.local`. Still needs adding to the Vercel dashboard once the project exists (Phase 1). |
+| `WP_URL` | BuddyBoss REST base URL — `https://st2-rezwan.hz2.developbb.dev`. Set in `apps/web/.env.local` and in Vercel (Production/Preview/Development) via `vercel env add`. |
 
 ---
 
 ## Session log
+
+### 2026-08-27 — Phase 1: Next.js scaffold + activity feed
+
+- Installed pnpm (Homebrew, avoids the sudo-gated global npm/corepack path)
+  and set up a pnpm workspace: `apps/web` (Next.js 16, App Router, TypeScript
+  strict, Tailwind, Biome — no ESLint) plus `packages/types` and
+  `packages/api-client`.
+- `packages/api-client/src/wp-fetch.ts` — the single transport, no auth yet.
+  `wpFetchJson`/`wpFetchList` take a parse callback rather than a zod schema
+  type; see `DECISIONS.md` for why (`.catch()` + generic zod schemas don't mix
+  well with TS inference).
+- `packages/types/src/activity.ts` — Activity zod schema informed by the real
+  `docs/samples/buddyboss-v1-activity.json` shape. Caught a real bug in
+  development: `z.coerce.boolean()` treats the string `"0"` as truthy (JS
+  coercion, not PHP), so BuddyBoss's `"0"`/`"1"` boolean fields came out
+  wrong until replaced with an explicit string-aware coercion. A unit test
+  fixture built from the loose-typed live shape is what caught it.
+  `packages/types/scripts/draft-schema.ts` is a rough schema-drafting tool for
+  future endpoints — prints a starting point, not final output.
+- `/` (activity feed) is a Server Component rendering real data via
+  `getActivityFeed()`, with loading and error states. Avatars go through
+  `next/image` with `remotePatterns` derived from `WP_URL` (no hardcoded
+  hostname).
+- Added Vitest (unit tests) and Playwright (`@playwright/test`, smoke E2E
+  tagged `@smoke`) to `apps/web`. `pnpm verify` = typecheck + lint + unit +
+  smoke E2E, all passing. `pnpm build` succeeds (ISR, 30s revalidate on `/`).
+- `.mcp.json` added for the Playwright MCP (for Claude Code to drive a browser
+  directly) — not yet active this session; see Blockers.
+- Logged into Vercel CLI, linked project `web` under team `bb-0056`, set
+  `WP_URL` in all three Vercel environments, connected the GitHub repo (needed
+  both a login connection *and* installing Vercel's GitHub App with repo
+  access — two separate steps), and set Root Directory to `apps/web`.
+- Made a mistake testing this: ran `vercel deploy` directly from the repo
+  root, which tried to upload the whole working tree from disk (55k+ files,
+  including the untracked `remote/` mirror) instead of the git-tracked set,
+  and along the way created a second, misconfigured Vercel project. Deleted
+  the stray project and its dangling `.vercel/` link; the correct `web`
+  project is untouched. Lesson: don't run `vercel deploy` from local disk in
+  this repo — let the GitHub integration trigger builds from git-tracked
+  files only.
+- `apps/web/.env.local` (not repo-root `.env.local`) is where `WP_URL` lives
+  now — Next.js only auto-loads env files from its own directory.
 
 ### 2026-08-27 — Phase 0 complete: API introspection
 
