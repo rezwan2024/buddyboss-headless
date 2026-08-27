@@ -29,3 +29,22 @@ export async function getMember(id: number): Promise<MemberDetail> {
     next: { revalidate: 300, tags: ["members"] },
   });
 }
+
+/**
+ * Batch member lookup by ID — used to resolve author names/avatars for
+ * forum topics/replies, which only carry a bare numeric `author` field.
+ * Silently drops IDs that don't resolve (e.g. a deleted user).
+ */
+export async function getMembersByIds(ids: number[]): Promise<Member[]> {
+  if (ids.length === 0) return [];
+  const query = new URLSearchParams({
+    include: ids.join(","),
+    per_page: String(ids.length),
+  });
+  const { items } = await wpFetchList(
+    `/buddyboss/v1/members?${query}`,
+    (body) => memberListSchema.parse(body),
+    { next: { revalidate: 300, tags: ["members"] } },
+  );
+  return items;
+}

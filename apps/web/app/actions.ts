@@ -3,9 +3,12 @@
 import {
   getActivityComments,
   getActivityFeed,
+  getForums,
   getGroupMembers,
   getGroups,
   getMembers,
+  getRepliesWithAuthors,
+  getTopicsWithAuthors,
 } from "@buddyboss-headless/api-client";
 
 const PER_PAGE = 20;
@@ -33,4 +36,19 @@ export async function loadGroupsPage(page: number, search: string) {
 /** Called client-side by the infinite-scroll member list on a group's page. */
 export async function loadGroupMembersPage(groupId: number, page: number) {
   return getGroupMembers(groupId, { page, perPage: PER_PAGE });
+}
+
+/** Called client-side by the infinite-scroll forums list. */
+export async function loadForumsPage(page: number) {
+  return getForums({ page, perPage: PER_PAGE });
+}
+
+/** Called client-side by the infinite-scroll topic list on a forum's page. */
+export async function loadTopicsPage(forumId: number, page: number) {
+  return getTopicsWithAuthors(forumId, { page, perPage: PER_PAGE });
+}
+
+/** Called client-side by the infinite-scroll reply list on a topic's page. */
+export async function loadRepliesPage(topicId: number, page: number) {
+  return getRepliesWithAuthors(topicId, { page, perPage: PER_PAGE });
 }

@@ -11,10 +11,10 @@ reasoning in `DECISIONS.md`, rules in `CLAUDE.md`.
 ## Current state
 
 **Phase:** 2 — Public reads — in progress. Live at https://buddyboss.vercel.app.
-Done: activity feed, member directory + profile, groups directory + detail
-(with member list). Remaining: blog, forums.
-**Next task:** Ask which Phase 2 screen to build next (blog or forums) — no
-default assumed, user has been picking each one explicitly.
+Done: activity feed, member directory + profile, groups directory + detail,
+forums (list, forum + topics, topic + replies). Remaining: blog.
+**Next task:** Build the blog (list + single post via `wp/v2/posts`) — the
+last unbuilt Phase 2 screen.
 
 ## Blockers
 
@@ -69,6 +69,41 @@ this list whenever a new one is introduced.
 ---
 
 ## Session log
+
+### 2026-08-27 — Forums (list, topics, replies)
+
+- Built `/forums` (list), `/forums/[id]` (forum + topic list), and
+  `/forums/[id]/topics/[topicId]` (topic + reply list, all infinite-scroll
+  where the API is paginated). Backed by `GET /buddyboss/v1/forums`,
+  `/topics`, and `/reply`.
+- **Real gotcha found via OPTIONS introspection, not guessing:** filtering
+  topics/replies by parent forum/topic uses the query param `parent` — not
+  `forum_id` or `forum`, even though those are literally the field names in
+  the response body. Using the wrong param name doesn't error; it silently
+  returns the unfiltered list (BuddyBoss's usual 200-with-wrong-data
+  pattern). Confirmed the right param via
+  `curl -X OPTIONS .../buddyboss/v1/topics`.
+- Topics/replies are bbPress post-type objects — author is a bare numeric
+  ID, no embedded name or avatar (unlike activity/members/groups). Added
+  `getTopicsWithAuthors`/`getRepliesWithAuthors`/`getTopicWithAuthor` to
+  `packages/api-client`, resolving display info with one batched
+  `?include=id1,id2,...` member lookup per page rather than an N+1 fetch.
+- That batch lookup doesn't always resolve every ID (confirmed live: one of
+  three requested IDs came back missing, likely a deleted user) — the
+  fallback avatar URL was `""`, which crashes `next/image`'s `src` prop.
+  Fixed with a new shared `<AuthorAvatar>` that renders a placeholder circle
+  instead of an `<Image>` when the src is empty, used everywhere a
+  topic/reply author avatar renders.
+- One E2E test flaked on the first run twice, always the deepest new route
+  (`/forums/[id]/topics/[topicId]`) — Next dev compiles a route on first
+  visit, and clicking through to a brand-new doubly-nested route occasionally
+  outran the default 5s navigation timeout. Confirmed it wasn't a real bug
+  (passed reliably once the route was warm) and extended that one
+  assertion's timeout rather than leaving it flaky. Won't happen against the
+  prebuilt Vercel deploy.
+- Added a "Forums" link to the header nav, unit tests for
+  forum/topic/reply schema parsing, and 4 E2E tests — all passed cold
+  (fresh dev server) on the final run.
 
 ### 2026-08-27 — Groups directory + detail page
 
