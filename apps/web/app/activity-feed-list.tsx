@@ -16,6 +16,22 @@ function ThumbIcon({ className }: { className?: string }) {
   );
 }
 
+function PlayIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className={className}>
+      <path d="M6.5 4.6a1 1 0 0 1 1.5-.87l8 5.4a1 1 0 0 1 0 1.74l-8 5.4a1 1 0 0 1-1.5-.87V4.6Z" />
+    </svg>
+  );
+}
+
+function DocumentIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className={className}>
+      <path d="M5.5 2A1.5 1.5 0 0 0 4 3.5v13A1.5 1.5 0 0 0 5.5 18h9a1.5 1.5 0 0 0 1.5-1.5V7.6a1.5 1.5 0 0 0-.44-1.06l-4.6-4.6A1.5 1.5 0 0 0 9.9 1.5H5.5Zm4.75 1.06 4.19 4.19H11.5A1.25 1.25 0 0 1 10.25 6V3.06Z" />
+    </svg>
+  );
+}
+
 function LikesButton({ activity }: { activity: Activity }) {
   const [open, setOpen] = useState(false);
   const names = parseReactedNames(activity.reacted_names);
@@ -105,6 +121,46 @@ function ActivityItem({ activity }: { activity: Activity }) {
                     className="object-cover"
                   />
                 </div>
+              ))}
+            </div>
+          )}
+          {activity.bp_videos && (
+            <div className="mt-2 grid grid-cols-1 gap-1">
+              {activity.bp_videos.map((video) => (
+                <div
+                  key={video.id}
+                  className="relative aspect-video overflow-hidden rounded bg-black/5 dark:bg-white/5"
+                >
+                  <Image
+                    src={video.attachment_data.activity_thumb || video.attachment_data.full}
+                    alt=""
+                    fill
+                    sizes="(max-width: 672px) 100vw, 672px"
+                    className="object-cover"
+                  />
+                  <span className="absolute inset-0 flex items-center justify-center">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white">
+                      <PlayIcon className="h-4 w-4" />
+                    </span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+          {activity.bp_documents && (
+            <div className="mt-2 flex flex-col gap-1">
+              {activity.bp_documents.map((doc) => (
+                <a
+                  key={doc.id}
+                  href={doc.download_url}
+                  className="flex items-center gap-2 rounded border border-black/10 px-2 py-1.5 text-xs hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10"
+                >
+                  <DocumentIcon className="h-4 w-4 shrink-0 text-black/40 dark:text-white/40" />
+                  <span className="truncate">{doc.filename || "Document"}</span>
+                  <span className="ml-auto shrink-0 text-black/40 dark:text-white/40">
+                    {doc.size}
+                  </span>
+                </a>
               ))}
             </div>
           )}

@@ -3,6 +3,7 @@ export * from "./activity";
 export * from "./auth";
 export * from "./forums";
 export * from "./groups";
+export * from "./media";
 export * from "./members";
 export * from "./posts";
 export * from "./site";

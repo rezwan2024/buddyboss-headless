@@ -23,6 +23,56 @@ Format:
 
 ---
 
+## 2026-08-28 — Activity posts: one attachment per post, no attach-to-existing-activity
+
+**Decision:** Posting an image/video/document creates its own new activity
+(via `POST /media`, `/video`, or `/document` with no `activity_id`), and if
+there's caption text, it's applied afterward with `PATCH
+/activity/{id}`. Text-only posts still use `POST /activity` directly. The
+composer only accepts one attachment at a time; picking a second type
+disables the others (`apps/web/app/activity-composer.tsx`).
+**Why:** confirmed against the live API (curl, then browser) that BuddyBoss
+has no working way to attach an upload to an activity the caller already
+created:
+- `POST /buddyboss/v1/activity` accepts `bp_media_ids`/`bp_videos`/
+  `bp_documents`, but reading `class-bp-rest-activity-endpoint.php`
+  (`remote/wp-content/plugins/buddyboss-platform/`) shows they're only used
+  for a permission check in `create_item()` — nothing persists them. Live
+  test confirmed: posting with `bp_media_ids: [11]` created the activity but
+  came back with `bp_media_ids: null`.
+- `POST /buddyboss/v1/media` (and `/video`) *does* accept `activity_id`, and
+  passing an existing one does add the file to that activity's
+  `bp_media_ids` meta — but `bp_media_add_handler()`'s new-upload code path
+  (`bp-media/bp-media-functions.php`) never forwards `activity_id` into the
+  actual `bp_media_add()` call, so BuddyBoss's own `bp_activity_media_add`
+  hook (`bp-activity/bp-activity-filters.php`) still fires and creates a
+  *second*, separate, empty "posted an update" activity to host the file.
+  Confirmed live: passing `activity_id: 379` on attach still produced a
+  visible, empty duplicate activity (`380`) in the default feed query
+  alongside the real one.
+- Deleting that duplicate to clean it up is not an option either — it
+  cascade-deletes the underlying `BP_Media`/document row (its `activity_id`
+  column, not the meta on the real post, is the one BuddyBoss actually
+  reads at render time), which broke the photo entirely in testing.
+- Passing multiple `upload_ids` in one `/media` call doesn't merge them into
+  one activity either — each file gets its own auto-created container, even
+  within a single request (confirmed with a 2-file upload → 2 separate
+  activities).
+- `PATCH /activity/{id}` on the auto-created container works cleanly, so
+  that's how captions get attached to a single-file post.
+**Alternatives:** pre-creating a text activity and attaching media to it —
+rejected, produces a visible empty duplicate post per the above. Supporting
+multiple attachments per post — rejected for now; there's no confirmed way
+to merge them into one activity via this API, and shipping N separate,
+uncaptioned posts per "one post with 3 photos" would be a worse UX than
+disallowing it. Revisit if a documented endpoint/param surfaces, or if
+BuddyBoss ships a fix.
+**Also found while verifying:** this install requires `post_title` on every
+`activity_update` post (`bb_is_activity_post_title_enabled()`), capped at 80
+chars — a live 400 without it. `createActivity`/`setActivityContent`
+(`packages/api-client/src/activity.ts`) reuse `content` for it since there's
+no separate title input in the composer.
+
 ## 2026-08-27 — JWT plugin secret: auto-generated, never in wp-config.php
 
 **Decision:** `wp/plugin-headless/includes/class-tokens.php` generates a

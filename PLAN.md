@@ -106,7 +106,8 @@ survives an access-token expiry.
 
 **Goal:** the app writes, not just reads.
 
-- Post activity, comment, favorite, delete
+- Post activity (text, and with a single photo/video/document attachment —
+  brought forward from "out of scope", see below), comment, favorite, delete
 - Own profile: view and edit
 - Groups: join, leave
 - Forums: create topic, reply
@@ -150,8 +151,13 @@ a couple of colleagues.
 
 ## Out of scope for now
 
-Real-time sockets, LearnDash/Tutor LMS integration, gamification, media uploads,
+Real-time sockets, LearnDash/Tutor LMS integration, gamification,
 moderation tools, email invites, SEO work.
+
+Media uploads on activity posts were brought forward into Phase 4 (single
+attachment per post only — see DECISIONS.md for why multiple attachments
+per post aren't supported). Uploads elsewhere (profile avatar/cover, group
+photos, message attachments) are still out of scope.
 
 Revisit only after Phase 6.
 

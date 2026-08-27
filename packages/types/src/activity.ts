@@ -35,6 +35,30 @@ const bpMediaIds = z
   .catch(null)
   .transform((v) => (v && v.length > 0 ? v : null));
 
+// Same null-or-array shape as bp_media_ids, confirmed against a live post
+// (see DECISIONS.md — attaching a video always creates its own activity, so
+// this is what that activity looks like fetched back).
+const bpVideos = z
+  .array(activityMediaItemSchema)
+  .nullable()
+  .catch(null)
+  .transform((v) => (v && v.length > 0 ? v : null));
+
+// A document attached to the post. Confirmed against a live post — unlike
+// media/video, there's no thumbnail image; just filename/size/extension.
+const activityDocumentItemSchema = z.object({
+  id: looseNumber,
+  filename: z.string().catch(""),
+  size: z.string().catch(""),
+  extension: z.string().catch(""),
+  download_url: z.string().catch(""),
+});
+const bpDocuments = z
+  .array(activityDocumentItemSchema)
+  .nullable()
+  .catch(null)
+  .transform((v) => (v && v.length > 0 ? v : null));
+
 // `bb_activity_post_feature_image` is `[]` (empty array) when unset, or an
 // object when a feature image is attached to a text post.
 const featureImageObjectSchema = z.object({
@@ -71,6 +95,8 @@ const activityFieldsSchema = z.object({
   can_comment: looseBoolean,
   comment_count: looseNumber,
   bp_media_ids: bpMediaIds,
+  bp_videos: bpVideos,
+  bp_documents: bpDocuments,
   bb_activity_post_feature_image: bbActivityPostFeatureImage,
 });
 
@@ -100,3 +126,8 @@ export const activityCommentsResponseSchema = z.object({
 });
 
 export type ActivityCommentsResponse = z.infer<typeof activityCommentsResponseSchema>;
+
+// POST /buddyboss/v1/activity — the fields this project's composer actually
+// reads back from a created activity (just enough to attach media next).
+export const activityCreateResponseSchema = z.object({ id: looseNumber });
+export type ActivityCreateResponse = z.infer<typeof activityCreateResponseSchema>;

@@ -10,23 +10,19 @@ reasoning in `DECISIONS.md`, rules in `CLAUDE.md`.
 
 ## Current state
 
-**Phase:** 3 — Auth — done, pending this session's frontend deploy (plugin is
-already live). Login works end to end: `/login` → activity feed changes to
-the authenticated view → session survives an access-token expiry via
-`proxy.ts`'s proactive refresh. See session log below for what was actually
-verified against the live site.
-**Next task:** Phase 4 — Authenticated actions (post activity, comment,
-favorite/like, join/leave groups, forum topics/replies, friends). The like
-button and comment composer the user asked for earlier in Phase 2 belong
-here now that login exists.
+**Phase:** 4 — Authenticated actions — in progress. Done so far: posting to
+the activity feed (text-only, or with a single photo/video/document
+attachment). Still open: comment, favorite/like, join/leave groups, forum
+topics/replies, friends.
+**Next task:** pick the next Phase 4 slice — favorite/like and commenting
+are the most-requested from earlier phases and share the activity feed UI
+already in place, so probably start there.
 
 ## Blockers
 
-None. One follow-up: the Playwright MCP is configured in `.mcp.json` but this
-session hasn't reconnected to MCP servers since — a fresh session (or an
-explicit MCP reload) is needed before Claude Code can drive the browser
-directly. Until then, the Playwright *test* smoke suite (`pnpm test:e2e`)
-covers rendering + console-error checks.
+None. The Playwright MCP (`.mcp.json`) is confirmed working in-session as of
+this session — used it directly to log in, post, and screenshot the result
+against the live API.
 
 ## How to see the frontend
 
@@ -74,6 +70,50 @@ this list whenever a new one is introduced.
 ---
 
 ## Session log
+
+### 2026-08-28 — Phase 4: post to the activity feed, with an optional photo/video/document
+
+- New composer (`activity-composer.tsx` + `post-activity-action.ts`) above
+  the feed on `/`, shown only when logged in. Text-only posts, or one
+  attachment (photo, video, or document — not combined; see DECISIONS.md
+  for why).
+- `packages/api-client/src/media.ts` (new): raw upload + attach-to-activity
+  calls for all three attachment types, against the real endpoints
+  (`/media/upload`, `/video/upload`, `/document/upload`, then `/media`,
+  `/video`, `/document`). `activity.ts` gained `createActivity` (text-only)
+  and `setActivityContent` (PATCH, sets a caption on an attachment's
+  auto-created activity).
+- The request/response shapes for all of this were **not** taken from the
+  plugin's own `@apiParam` doc comments — those turned out to be wrong or
+  incomplete in a few places (document upload returns `id` not `upload_id`;
+  `post_title` is required on this install; `bp_media_ids` on the create
+  endpoint is accepted but never persisted). Verified instead by curling the
+  live API directly with the `headless-test` account, reading the actual
+  plugin source for the parts curl couldn't explain, and cleaning up every
+  test post afterward. See DECISIONS.md for the full trail — it's the
+  reason the two-step "attach always creates its own activity" design
+  exists at all.
+- `activityAvatarSchema`/`activitySchema` gained `bp_videos`/`bp_documents`
+  parsing and `<ActivityItem>` gained rendering for both (thumbnail +
+  play-icon overlay for video, filename/size link for documents) — needed
+  to actually see a posted video/document render, and it turned out an
+  existing untouched post in the feed already had a document attachment
+  that hadn't been rendering until this.
+- Real bug caught by Playwright, not by the test suite: the composer's
+  `useEffect` that invalidates the feed query after a successful post was
+  keyed on `state.success` (a boolean) instead of `state` (the object
+  useActionState returns fresh each dispatch) — two successful posts in a
+  row in the same mount only refreshed the feed for the first one, silently
+  needing a full reload to see the second. Fixed by depending on `state`
+  itself; reproduced the original bug and confirmed the fix live, both via
+  the browser.
+- `pnpm verify` and `pnpm build` both pass. Manually verified in the browser
+  (Playwright MCP, logged in as `headless-test`): text-only, photo, video,
+  and document posts all created correctly, captioned correctly, and
+  rendered correctly — then deleted from the live site afterward.
+- **What to look at:** the composer at `/` (must be logged in) — try a
+  text-only post, then a post with a photo, video, or document. Two posts
+  in a row without reloading should both show up immediately.
 
 ### 2026-08-28 — Activity feed: render attached photos and feature images
 
