@@ -10,9 +10,11 @@ reasoning in `DECISIONS.md`, rules in `CLAUDE.md`.
 
 ## Current state
 
-**Phase:** 1 — Scaffold — done. Live at https://buddyboss.vercel.app.
-**Next task:** Phase 2 — public reads (blog, members, profile, groups, forums;
-activity feed already ships from Phase 1). See `PLAN.md` Phase 2.
+**Phase:** 2 — Public reads — in progress. Live at https://buddyboss.vercel.app.
+Done: activity feed (Phase 1), member directory with search. Remaining:
+profile, blog, groups, forums.
+**Next task:** Ask which Phase 2 screen to build next (profile, blog, groups,
+or forums) — no default assumed, user has been picking each one explicitly.
 
 ## Blockers
 
@@ -67,6 +69,29 @@ this list whenever a new one is introduced.
 ---
 
 ## Session log
+
+### 2026-08-27 — Member directory (Phase 2 begins)
+
+- User asked to like posts from the deployed frontend — explained that
+  requires auth (Phase 3: JWT plugin, login/logout, cookie sessions), which
+  doesn't exist yet, and that faking it client-side would mean embedding
+  write credentials in the browser (a real security hole, not a shortcut).
+  User chose to keep the app read-only for now and continue Phase 2 instead.
+- Built `/members`: directory with infinite scroll (same TanStack Query
+  pattern as the activity feed) and debounced search, both backed by
+  `GET /buddyboss/v1/members`. Added a "Members" link to the header nav.
+- Factored `looseBoolean`/`looseNumber`/`avatarUrlsSchema` out of
+  `activity.ts` into `packages/types/src/shared.ts` — `member.ts` needed
+  the same loose-typing helpers, not worth duplicating.
+- `getNextPageParam` in the new members list uses each response's own
+  `.pages` count rather than a value captured once at mount (which the
+  activity feed does) — necessary here since the page count changes when
+  the search term changes, unlike the activity feed's fixed total.
+- Added E2E coverage: directory renders, search narrows results against a
+  real member (Shakeel Ahmad), header nav link works. All passed against
+  the live API on the first attempt — the by-now-familiar traps (loose
+  types, pagination via headers) were already accounted for in the schema
+  from the start this time.
 
 ### 2026-08-27 — Rename favorites to likes, add "who liked" popover
 

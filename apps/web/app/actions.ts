@@ -1,6 +1,6 @@
 "use server";
 
-import { getActivityComments, getActivityFeed } from "@buddyboss-headless/api-client";
+import { getActivityComments, getActivityFeed, getMembers } from "@buddyboss-headless/api-client";
 
 const PER_PAGE = 20;
 
@@ -12,4 +12,9 @@ export async function loadActivityPage(page: number) {
 /** Called client-side when a user expands an activity item's comment thread. */
 export async function loadActivityComments(activityId: number) {
   return getActivityComments(activityId);
+}
+
+/** Called client-side by the infinite-scroll member directory, including on search. */
+export async function loadMembersPage(page: number, search: string) {
+  return getMembers({ page, perPage: PER_PAGE, search: search || undefined });
 }

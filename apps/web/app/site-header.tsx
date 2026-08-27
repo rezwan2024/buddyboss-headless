@@ -11,7 +11,7 @@ export default async function SiteHeader() {
 
   return (
     <header className="border-b border-black/10 dark:border-white/10">
-      <div className="mx-auto flex w-full max-w-2xl items-center gap-2 px-4 py-3">
+      <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-4 px-4 py-3">
         <Link href="/" className="flex items-center gap-2 font-semibold">
           {site.site_icon_url && (
             <Image
@@ -24,6 +24,14 @@ export default async function SiteHeader() {
           )}
           <span>{decodeEntities(site.name) || "BuddyBoss Headless"}</span>
         </Link>
+        <nav className="flex gap-4 text-sm text-black/60 dark:text-white/60">
+          <Link href="/" className="hover:text-black dark:hover:text-white">
+            Activity
+          </Link>
+          <Link href="/members" className="hover:text-black dark:hover:text-white">
+            Members
+          </Link>
+        </nav>
       </div>
     </header>
   );

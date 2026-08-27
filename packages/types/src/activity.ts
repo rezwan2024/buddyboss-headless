@@ -6,18 +6,8 @@
 // GENERATED — do not hand-edit field shapes without re-checking a live sample
 // via ./scripts/introspect-api.ts; add fields as new screens need them.
 import { z } from "zod";
+import { avatarUrlsSchema, looseBoolean, looseNumber } from "./shared";
 
-// BuddyBoss serializes booleans and numbers inconsistently (true/false vs
-// 0/1 vs "0"/"1" depending on endpoint and PHP code path) — coerce, don't trust.
-//
-// z.coerce.boolean() is a trap here: it does JS-truthy coercion, so the
-// string "0" (falsy in PHP, truthy in JS) coerces to `true`. Treat "0"/""
-// as false explicitly instead.
-const looseBoolean = z
-  .union([z.boolean(), z.string(), z.number()])
-  .transform((v) => (typeof v === "string" ? v !== "" && v !== "0" : Boolean(v)))
-  .catch(false);
-const looseNumber = z.coerce.number().catch(0);
 // `reacted_names` comes back as the number 0 (no likes) or a comma-separated
 // string of display names (who liked) when there's at least one.
 const reactedNames = z
@@ -25,12 +15,7 @@ const reactedNames = z
   .transform((v) => (typeof v === "string" ? v : ""))
   .catch("");
 
-export const activityAvatarSchema = z
-  .object({
-    full: z.string().catch(""),
-    thumb: z.string().catch(""),
-  })
-  .catch({ full: "", thumb: "" });
+export const activityAvatarSchema = avatarUrlsSchema;
 
 const activityFieldsSchema = z.object({
   id: looseNumber,
