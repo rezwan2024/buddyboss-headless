@@ -15,3 +15,15 @@ test("activity feed renders real data with no console errors @smoke", async ({ p
 
   expect(consoleErrors).toEqual([]);
 });
+
+test("scrolling loads more activity @smoke", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator("li").first()).toBeVisible();
+
+  const initialCount = await page.locator("li").count();
+  await page.locator("li").last().scrollIntoViewIfNeeded();
+
+  await expect
+    .poll(async () => page.locator("li").count(), { timeout: 5000 })
+    .toBeGreaterThan(initialCount);
+});

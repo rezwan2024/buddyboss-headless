@@ -16,7 +16,8 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "@buddyboss-headless/api-client": "workspace:*",
-    "@buddyboss-headless/types": "workspace:*"
+    "@buddyboss-headless/types": "workspace:*",
+    "@tanstack/react-query": "^5.62.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",

@@ -68,6 +68,22 @@ this list whenever a new one is introduced.
 
 ## Session log
 
+### 2026-08-27 — Infinite scroll on the activity feed
+
+- User reported the feed only ever showed the first 20 of 195 items with no
+  way to load more, unlike the live BuddyBoss site's auto-loading scroll.
+  Added `<ActivityFeedList>` (Client Component, TanStack Query
+  `useInfiniteQuery`, seeded with the server-fetched first page via
+  `initialData` so page 1 isn't re-fetched) plus an `IntersectionObserver`
+  sentinel that calls `fetchNextPage()` as the user nears the bottom —
+  matches `CLAUDE.md`'s documented pattern ("client-side lists and infinite
+  scroll use TanStack Query, calling Server Actions"). Pages 2+ come from a
+  new Server Action, `loadActivityPage` in `app/actions.ts`.
+- Added `<Providers>` (`QueryClientProvider`) to `app/layout.tsx`.
+- Extended the Playwright smoke suite with a scroll-and-count-increases
+  check — the existing test only verified the first page rendered, which
+  wouldn't have caught this gap.
+
 ### 2026-08-27 — Basic site footer
 
 - Added `<SiteFooter>` matching the live BuddyBoss dev site's copyright bar
