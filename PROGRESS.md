@@ -68,6 +68,17 @@ this list whenever a new one is introduced.
 
 ## Session log
 
+### 2026-08-27 — Basic site header
+
+- Added `getSiteInfo()` (hits WP core `GET /wp-json`, not a buddyboss/v1
+  route) and a `<SiteHeader>` Server Component in `app/layout.tsx` showing
+  the real site name ("Rezwan Dev site"), linking home. No site icon is
+  configured on the dev site (`site_icon_url` is empty), so it falls back to
+  text branding — picks up a logo automatically if one gets set later.
+  User explicitly deferred full BuddyBoss-style nav/post-card styling
+  (like/comment/share, composer, filters) to Phase 2/3, since most of that
+  needs auth to be functional.
+
 ### 2026-08-27 — Dark mode fix + Vercel short URL
 
 - User reported unreadable text on https://buddyboss.vercel.app in Chrome
