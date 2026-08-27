@@ -192,9 +192,10 @@ are active. BuddyBoss Platform Pro is installed.
 
 Always use these. Never bare `wp`, never raw ssh/rsync commands.
 
-    ./scripts/wp <args>        # WP-CLI on the remote site over SSH
-    ./scripts/pull             # mirror remote WordPress root into ./remote/
-    ./scripts/push <subpath>   # dry-run by default; add --go to apply
+    ./scripts/wp <args>          # WP-CLI on the remote site over SSH
+    ./scripts/pull               # mirror remote WordPress root into ./remote/
+    ./scripts/push <subpath>     # dry-run by default; add --go to apply
+    ./scripts/push-plugin        # deploys wp/plugin-headless/ specifically; dry-run by default
 
 Examples:
 
@@ -203,12 +204,21 @@ Examples:
     ./scripts/wp bp activity list --count=5
     ./scripts/push wp-content/plugins/headless/          # preview
     ./scripts/push wp-content/plugins/headless/ --go     # apply
+    ./scripts/push-plugin                                # preview the auth plugin deploy
+    ./scripts/push-plugin --go                            # apply
+
+`./scripts/push-plugin` exists because `./scripts/push` only ever syncs from
+the gitignored `./remote/` mirror — the auth plugin's canonical source lives
+in git at `wp/plugin-headless/` instead, so it needs its own deploy path
+straight from that tracked directory (excludes `tests/`, `vendor/`, and
+composer files — dev-only, not deployed).
 
 ## Rules for the remote site
 
 - It is a **live shared site** with real data. Be conservative.
-- `./scripts/push` without `--go` is a dry run. Show the user the dry-run output
-  and get confirmation before running with `--go`.
+- `./scripts/push` and `./scripts/push-plugin` are dry runs without `--go`.
+  Show the user the dry-run output and get confirmation before running with
+  `--go`.
 - Never push to `wp-admin/`, `wp-includes/`, or `wp-config.php`.
 - Never run destructive WP-CLI (`db reset`, `site empty`, `post delete --force`,
   `plugin deactivate` on BuddyBoss plugins) without explicit confirmation.

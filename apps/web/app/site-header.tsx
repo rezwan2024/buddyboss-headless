@@ -2,6 +2,7 @@ import { decodeEntities } from "@/lib/format";
 import { getSiteInfo } from "@buddyboss-headless/api-client";
 import Image from "next/image";
 import Link from "next/link";
+import AuthStatus from "./auth-status";
 
 // No logo/site icon is configured on the dev site yet (site_icon_url comes
 // back empty) — falls back to the site name as text branding. If a logo
@@ -40,6 +41,7 @@ export default async function SiteHeader() {
           <Link href="/blog" className="hover:text-black dark:hover:text-white">
             Blog
           </Link>
+          <AuthStatus />
         </nav>
       </div>
     </header>

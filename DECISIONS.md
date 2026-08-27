@@ -23,6 +23,85 @@ Format:
 
 ---
 
+## 2026-08-27 — JWT plugin secret: auto-generated, never in wp-config.php
+
+**Decision:** `wp/plugin-headless/includes/class-tokens.php` generates a
+random 64-char secret on first use and stores it via `add_option(...,
+autoload: false)` — never a `wp-config.php` constant, never committed.
+**Why:** `CLAUDE.md` forbids pushing to `wp-config.php`, and the GitHub repo
+is public — a secret baked into any tracked file would leak immediately.
+Auto-generating on first activation means zero manual server-side setup step
+that could be forgotten or done wrong.
+**Consequence:** the secret lives only in the live site's database. Losing
+that DB (or resetting the option) invalidates every existing session —
+acceptable for a dev site; would need a real backup story for production.
+
+## 2026-08-27 — Refresh tokens embed the (non-secret) user ID
+
+**Decision:** A refresh token is `"<user_id>:<random 64 chars>"`, not just
+random bytes. The random part is hashed and stored in that user's own
+`user_meta`; only the hash is stored, never the plaintext token.
+**Why:** Refresh/revoke requests need to find the right user's stored token
+record to verify against. Embedding the ID avoids a global scan across
+every user's meta for a matching hash — an O(1) lookup instead of O(users).
+The ID itself isn't sensitive (it's not a secret), so exposing it in the
+token is fine; the random part is what actually authenticates.
+
+## 2026-08-27 — Refresh-and-retry lives in `proxy.ts`, not literally in `wp-fetch.ts`
+
+**Decision:** Token refresh happens proactively in `apps/web/proxy.ts`
+(Next's post-16 rename of `middleware.ts`), which runs before every page
+request and rewrites the access-token cookie if it's near expiry. wp-fetch
+itself does not catch a 401 and retry.
+**Why:** `PLAN.md` names "refresh-and-retry in wp-fetch", but that's not
+achievable literally in the App Router: wp-fetch only ever runs inside a
+Server Component's render, and Server Components cannot write cookies
+mid-render — there's no way to persist a refreshed token from there. Proxy
+runs earlier in the request lifecycle and can set response cookies, so
+refreshing *before* the page renders achieves the same outcome ("session
+survives an access-token expiry") without needing an impossible retry path.
+**Alternatives:** A Route Handler that pages call before rendering —
+rejected as an extra round trip for something proxy already does for free
+on every request. Doing nothing and letting the access token 401 — rejected,
+that's exactly the failure mode PLAN.md's "done when" condition rules out.
+
+## 2026-08-27 — Login state in the header is read client-side, not via `cookies()`
+
+**Decision:** `<AuthStatus>` (in the header, rendered on every page via the
+root layout) reads a small non-httpOnly `hl_user` cookie via
+`document.cookie` in a Client Component, rather than the header calling
+`cookies()` server-side.
+**Why:** `cookies()` is a Next.js dynamic API — calling it anywhere in a
+route's render tree opts that whole route out of static rendering/ISR,
+unconditionally, regardless of whether a session actually exists. Since the
+header renders on literally every page, doing this server-side would have
+made every list page (`/members`, `/groups`, `/forums`, `/blog`, all
+previously ISR-cached) dynamic forever, not just the one page (`/`) that
+actually needs to be user-aware.
+**Consequence:** a brief flash of "logged out" in the header before
+hydration reads the cookie. `hl_user` is non-sensitive (id/display name
+only) — the real session tokens (`hl_access`, `hl_refresh`) stay httpOnly
+and are never readable by client JS.
+
+## 2026-08-27 — PHPUnit for the auth plugin stubs WordPress rather than bootstrapping it
+
+**Decision:** `wp/plugin-headless/tests/` unit-tests the actual production
+classes (`Tokens`, `Auth::determine_current_user`) against hand-written
+stubs of the handful of WP functions they call (`get_option`, `get_user_by`,
+etc.) — not a real WordPress test bootstrap with `get_current_user_id()`.
+**Why:** `PLAN.md` asks for "a PHPUnit test proving a valid token yields the
+right `get_current_user_id()`", which needs a full WP core PHPUnit
+integration bootstrap (wp-phpunit + a test database) to test for real. This
+project has a standing decision against a local WordPress install (see
+below) — setting one up just for this one test would reverse that decision
+for a single test's sake.
+**Alternatives:** Skip PHPUnit entirely — rejected, `AuthTest.php` still
+catches real regressions in the actual filter logic (wrong user, expired
+token, tampered signature, deleted user), just without WP's own
+current-user caching layered on top. That layer was verified by hand
+against the live site instead (curl, end to end) once deployed — see
+`PROGRESS.md`.
+
 ## 2026-08-27 — pnpm workspace monorepo: `apps/web` + `packages/*`
 
 **Decision:** `apps/web` holds the Next.js app; `packages/types` and

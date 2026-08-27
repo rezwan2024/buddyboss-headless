@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Deploys wp/plugin-headless/ (git-tracked source) to
+# wp-content/plugins/headless-auth/ on the remote site. Separate from
+# ./scripts/push, which only syncs from the gitignored ./remote/ mirror —
+# the plugin's canonical source lives in git, not in that mirror.
+#
+# Dry-run by default, same as ./scripts/push. Excludes dev-only files
+# (tests/, composer tooling) that have no business on the live site.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+source .env.deploy
+
+DRY="--dry-run"
+[ "${1:-}" = "--go" ] && DRY=""
+[ -n "$DRY" ] && echo ">>> DRY RUN (add --go to apply)"
+
+rsync -avz $DRY --delete \
+  --exclude 'tests/' \
+  --exclude 'vendor/' \
+  --exclude 'composer.json' \
+  --exclude 'composer.lock' \
+  --exclude 'phpunit.xml' \
+  --exclude '.phpunit.result.cache' \
+  -e "ssh -i $SFTP_KEY -p $SFTP_PORT" \
+  "./wp/plugin-headless/" "$SFTP_USER@$SFTP_HOST:$SFTP_PATH/wp-content/plugins/headless-auth/"

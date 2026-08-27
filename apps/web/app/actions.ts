@@ -1,5 +1,6 @@
 "use server";
 
+import { getAccessToken } from "@/lib/session";
 import {
   getActivityComments,
   getActivityFeed,
@@ -16,7 +17,11 @@ const PER_PAGE = 20;
 
 /** Called client-side by the infinite-scroll activity feed for pages after the first. */
 export async function loadActivityPage(page: number) {
-  return getActivityFeed({ page, perPage: PER_PAGE });
+  // Server Actions can read cookies() directly — matches the auth-awareness
+  // of the initial page.tsx fetch, so paginating while logged in doesn't
+  // silently fall back to the anonymous feed.
+  const accessToken = await getAccessToken();
+  return getActivityFeed({ page, perPage: PER_PAGE, accessToken: accessToken ?? undefined });
 }
 
 /** Called client-side when a user expands an activity item's comment thread. */

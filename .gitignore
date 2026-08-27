@@ -8,3 +8,5 @@ test-results/
 playwright-report/
 blob-report/
 .vercel
+vendor/
+.phpunit.result.cache

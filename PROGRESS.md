@@ -10,13 +10,15 @@ reasoning in `DECISIONS.md`, rules in `CLAUDE.md`.
 
 ## Current state
 
-**Phase:** 2 — Public reads — done. Live at https://buddyboss.vercel.app: blog,
-member directory + profile, activity feed, groups directory + detail, forums
-(list, forum + topics, topic + replies). You can browse the whole public
-community without authenticating, per Phase 2's done condition in `PLAN.md`.
-**Next task:** Phase 3 — Auth (JWT plugin on WordPress, login/logout,
-httpOnly cookies). Confirm with the user before starting — it's custom PHP on
-the live site and security-sensitive, unlike everything so far.
+**Phase:** 3 — Auth — done, pending this session's frontend deploy (plugin is
+already live). Login works end to end: `/login` → activity feed changes to
+the authenticated view → session survives an access-token expiry via
+`proxy.ts`'s proactive refresh. See session log below for what was actually
+verified against the live site.
+**Next task:** Phase 4 — Authenticated actions (post activity, comment,
+favorite/like, join/leave groups, forum topics/replies, friends). The like
+button and comment composer the user asked for earlier in Phase 2 belong
+here now that login exists.
 
 ## Blockers
 
@@ -67,10 +69,80 @@ this list whenever a new one is introduced.
 | Var | Purpose |
 |---|---|
 | `WP_URL` | BuddyBoss REST base URL — `https://st2-rezwan.hz2.developbb.dev`. Set in `apps/web/.env.local` and in Vercel (Production/Preview/Development) via `vercel env add`. |
+| `TEST_USER_LOGIN` / `TEST_USER_PASSWORD` | Dedicated WP test account (`headless-test`, user ID 25, subscriber role) for `tests/e2e/auth.spec.ts`. Local-only, `apps/web/.env.local` only — **not** in Vercel, these tests don't run there. Auth tests skip themselves if unset. |
 
 ---
 
 ## Session log
+
+### 2026-08-27 — Phase 3: Auth (JWT plugin, login/logout, session refresh)
+
+- **Plugin** — `wp/plugin-headless/` (new, tracked in git), deployed via a
+  new `./scripts/push-plugin` (separate from `./scripts/push`, which only
+  syncs from the gitignored `./remote/` mirror — the plugin's source lives
+  in git instead). Deployed and activated on the live site as
+  `headless-auth`. Routes under `headless-auth/v1`: `/login`, `/refresh`,
+  `/revoke`. JWT secret auto-generates into a non-autoloaded WP option on
+  first use — never a `wp-config.php` constant, never committed (repo is
+  public). Refresh tokens are `"<user_id>:<random>"`, hashed before storage
+  in that user's own `user_meta` (O(1) lookup, no global scan), rotated on
+  every use (old token rejected on replay — verified live).
+- **Verified end-to-end against the live site via curl**, not just unit
+  tests: login issues tokens; `GET /buddyboss/v1/members/me` (unauthenticated)
+  correctly 401s and (with the Bearer token) correctly resolves to the test
+  user — proving `determine_current_user` actually feeds BuddyBoss's real
+  permission stack, which is the thing `PLAN.md`'s PHPUnit requirement was
+  ultimately trying to prove; refresh rotates and rejects replay of the old
+  token; revoke invalidates; bad credentials return a generic 401 (doesn't
+  leak whether a username exists).
+- **PHPUnit** (`wp/plugin-headless/tests/`, 17 tests) stubs the WP functions
+  our classes call and tests the actual production classes against those
+  stubs — not a full WP-bootstrapped integration test, since that needs a
+  local WP test install this project deliberately doesn't have. See
+  `DECISIONS.md`.
+- **Frontend**: `/login` (Server Action `loginAction`, generic error message
+  on bad credentials — matches the plugin's own generic error, so failed
+  logins never confirm a username exists), `logoutAction`, three cookies
+  (`hl_access`/`hl_refresh` httpOnly; `hl_user` **not** httpOnly — just
+  display info, read client-side so the header doesn't need `cookies()`
+  server-side and force every route dynamic). `getActivityFeed` takes an
+  optional `accessToken` — set, it's `cache: "no-store"`; unset, the
+  existing anonymous ISR path. Only `/` actually calls `cookies()`, so it's
+  the only route that lost static rendering — every other list page
+  (`/blog`, `/groups`, `/forums`, `/members`) stayed static, confirmed in
+  the build output.
+- **`middleware.ts` → `proxy.ts`**: hit a real Next 16 breaking change mid-session
+  (the file convention was renamed; build warned about it). Renamed the file,
+  the exported function (`middleware` → `proxy`), and its `config.matcher`
+  stayed the same. Proxy refreshes the access token proactively before a
+  page renders if it's within 5 minutes of expiry — this is what "refresh
+  and retry in wp-fetch" actually became, since a Server Component can't
+  write cookies mid-render (see `DECISIONS.md`).
+- **Two real bugs found and fixed via E2E tests, not caught by eyeballing
+  the code:**
+  1. Double-encoded `hl_user` cookie — manually called `encodeURIComponent()`
+     before handing the value to Next's cookie APIs, which already encode it
+     themselves. Client-side `decodeURIComponent()` only undid one layer,
+     leaving mangled JSON that silently failed `JSON.parse` (caught, so it
+     just looked like "not logged in" rather than throwing visibly). Found
+     by dumping `page.context().cookies()` in a throwaway debug test when
+     the real test's symptom (header not updating) didn't point at the
+     cause directly.
+  2. `<AuthStatus>` only read the session cookie in a mount-only
+     `useEffect([])`. Since it lives in the root layout, which App Router
+     keeps mounted across navigations, it never noticed a login (which
+     redirects `/login` → `/`) — the header stayed stuck on "Log in" after
+     a successful login. Fixed with `usePathname()` as the effect's
+     dependency (catches login, since the path changes) plus an optimistic
+     `setUser(null)` in the logout click handler (catches logout, which
+     redirects back to the same `/` the pathname trick wouldn't detect).
+- Created a dedicated test account (`headless-test`, subscriber role, ID 25)
+  via wp-cli rather than reusing an existing account, per `CLAUDE.md`.
+  Credentials in `apps/web/.env.local` only (gitignored) — `auth.spec.ts`
+  skips itself if unset.
+- 3 new E2E tests (login shows account + logs out, wrong password shows a
+  generic error, activity feed renders with no console errors while logged
+  in) — stable across two full runs, 23/23 passing total.
 
 ### 2026-08-27 — Blog (Phase 2 complete)
 

@@ -5,9 +5,16 @@ import { type WpList, wpFetchJson, wpFetchList } from "./wp-fetch";
 export interface GetActivityFeedParams {
   page?: number;
   perPage?: number;
+  /**
+   * When set, the request is authenticated (private-network content and
+   * per-user state like `favorited` become visible) and is never cached —
+   * an authenticated response is specific to that one user. Omit for the
+   * existing anonymous, ISR-cached feed.
+   */
+  accessToken?: string;
 }
 
-/** Global activity feed — `GET /buddyboss/v1/activity`. Public, no auth. */
+/** Global activity feed — `GET /buddyboss/v1/activity`. Public reads work with no auth. */
 export async function getActivityFeed(
   params: GetActivityFeedParams = {},
 ): Promise<WpList<Activity>> {
@@ -18,7 +25,10 @@ export async function getActivityFeed(
     per_page: String(perPage),
   });
   return wpFetchList(`/buddyboss/v1/activity?${query}`, (body) => activityListSchema.parse(body), {
-    next: { revalidate: 30, tags: ["activity"] },
+    accessToken: params.accessToken,
+    ...(params.accessToken
+      ? { cache: "no-store" }
+      : { next: { revalidate: 30, tags: ["activity"] } }),
   });
 }
 

@@ -1,5 +1,6 @@
 export * from "./wp-fetch";
 export * from "./activity";
+export * from "./auth";
 export * from "./forums";
 export * from "./groups";
 export * from "./members";

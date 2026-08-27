@@ -1,15 +1,23 @@
-// The single transport for every call to the BuddyBoss REST API. No auth yet
-// (Phase 3) — this is anonymous-only. Never call the WordPress host from
-// anywhere else; route through here so caching, error handling, and (later)
-// auth headers stay in one place.
+// The single transport for every call to the BuddyBoss REST API. Never call
+// the WordPress host from anywhere else; route through here so caching,
+// error handling, and auth headers stay in one place.
 
 /**
  * Next.js augments the global `fetch`'s `RequestInit` with a `next` option
  * for cache revalidation. This package doesn't depend on `next`, so the
  * extension is declared locally rather than picked up ambiently.
+ *
+ * `accessToken`, when set, is sent as `Authorization: Bearer <token>` — the
+ * caller (a Server Component/Action reading the session cookie) is
+ * responsible for also passing `cache: "no-store"` alongside it, since an
+ * authenticated response is user-specific and must never be cached for
+ * other users. wp-fetch doesn't force this automatically because most
+ * calls stay anonymous even after Phase 3 — only screens that actually
+ * personalize need it.
  */
 export type WpFetchInit = RequestInit & {
   next?: { revalidate?: number | false; tags?: string[] };
+  accessToken?: string;
 };
 
 export class WpApiError extends Error {
@@ -39,10 +47,15 @@ function baseUrl(): string {
  * validation.
  */
 export async function wpFetch(path: string, init: WpFetchInit = {}): Promise<Response> {
+  const { accessToken, ...rest } = init;
   const url = `${baseUrl()}/wp-json${path}`;
   return fetch(url, {
-    ...init,
-    headers: { Accept: "application/json", ...init.headers },
+    ...rest,
+    headers: {
+      Accept: "application/json",
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      ...init.headers,
+    },
   });
 }
 
