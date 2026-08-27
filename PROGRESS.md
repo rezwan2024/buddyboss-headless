@@ -68,6 +68,14 @@ this list whenever a new one is introduced.
 
 ## Session log
 
+### 2026-08-27 — Basic site footer
+
+- Added `<SiteFooter>` matching the live BuddyBoss dev site's copyright bar
+  ("© {year} – DFY Fresh WordPress Website"). That text is a theme
+  customizer setting (`buddyboss_theme_options.copyright_text`), not exposed
+  by any REST route — hardcoded in the component (year computed, not
+  hardcoded) rather than adding a custom PHP endpoint for one string.
+
 ### 2026-08-27 — Basic site header
 
 - Added `getSiteInfo()` (hits WP core `GET /wp-json`, not a buddyboss/v1
