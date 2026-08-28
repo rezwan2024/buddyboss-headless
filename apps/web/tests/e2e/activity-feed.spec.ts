@@ -32,8 +32,11 @@ test("clicking a comment count expands the thread @smoke", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator("li").first()).toBeVisible();
 
-  // Only items with comment_count > 0 render as a clickable button.
-  const commentButton = page.getByRole("button", { name: /\d+ comments/ }).first();
+  // Every item's comment count is clickable now (so a logged-out-of-scope
+  // reader can still see an empty thread, and a logged-in one can post the
+  // first comment) — target one with comment_count > 0 specifically, since
+  // this test asserts real comment content shows up, not "No comments yet.".
+  const commentButton = page.getByRole("button", { name: /[1-9]\d* comments/ }).first();
   await commentButton.scrollIntoViewIfNeeded();
   await commentButton.click();
 

@@ -161,4 +161,14 @@ describe("activityCommentsResponseSchema", () => {
     expect(parsed.comments[1].content_stripped).toBe("2nd");
     expect(parsed.comments[1].comments).toBeUndefined();
   });
+
+  it("treats a bare `[]` (zero comments) as an empty envelope instead of throwing", () => {
+    // GET /buddyboss/v1/activity/{id}/comment returns `[]`, not
+    // `{comment_count, comments}`, when there are no comments — confirmed
+    // live. A bare z.object() given that would throw uncaught; this is
+    // what surfaced the bug (previously unreachable — only activities with
+    // comment_count > 0 rendered a clickable comments button).
+    const parsed = activityCommentsResponseSchema.parse([]);
+    expect(parsed).toEqual({ comment_count: 0, comments: [] });
+  });
 });

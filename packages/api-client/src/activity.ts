@@ -1,4 +1,5 @@
 import {
+  activityCommentCreateResponseSchema,
   activityCommentsResponseSchema,
   activityCreateResponseSchema,
   activityListSchema,
@@ -86,5 +87,30 @@ export async function getActivityComments(activityId: number): Promise<ActivityC
     `/buddyboss/v1/activity/${activityId}/comment`,
     (body) => activityCommentsResponseSchema.parse(body),
     { next: { revalidate: 30, tags: ["activity"] } },
+  );
+}
+
+/**
+ * Post a top-level comment on an activity — `POST
+ * /buddyboss/v1/activity/{id}/comment`. Unlike the main create-activity
+ * endpoint, this one has no `post_title` requirement — confirmed live.
+ * Replying to a specific comment (rather than the activity itself) would
+ * need `parent_id`, not supported here yet.
+ */
+export async function createActivityComment(
+  activityId: number,
+  content: string,
+  accessToken: string,
+) {
+  return wpFetchJson(
+    `/buddyboss/v1/activity/${activityId}/comment`,
+    (body) => activityCommentCreateResponseSchema.parse(body),
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content }),
+      accessToken,
+      cache: "no-store",
+    },
   );
 }

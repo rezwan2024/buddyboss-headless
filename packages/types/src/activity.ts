@@ -119,11 +119,22 @@ export const activitySchema: z.ZodType<Activity, z.ZodTypeDef, unknown> =
 export const activityListSchema = z.array(activitySchema);
 
 // GET /buddyboss/v1/activity/{id}/comment — comments have the same shape as
-// an activity item (type: "activity_comment"), just nested under this envelope.
-export const activityCommentsResponseSchema = z.object({
+// an activity item (type: "activity_comment"), just nested under this
+// envelope, EXCEPT when there are zero comments: confirmed live, the
+// endpoint returns a bare `[]` instead of `{comment_count, comments}` in
+// that case (previously unreachable — every activity with a "0 comments"
+// button was actually uncommented text; making the button always clickable
+// so users can post the first comment on any activity was what surfaced
+// this). A `z.object()` given that bare array would throw uncaught, so
+// this normalizes both shapes.
+const activityCommentsEnvelopeSchema = z.object({
   comment_count: looseNumber,
   comments: z.array(activitySchema).catch([]),
 });
+export const activityCommentsResponseSchema = z
+  .union([activityCommentsEnvelopeSchema, z.array(z.unknown())])
+  .catch({ comment_count: 0, comments: [] })
+  .transform((v) => (Array.isArray(v) ? { comment_count: 0, comments: [] } : v));
 
 export type ActivityCommentsResponse = z.infer<typeof activityCommentsResponseSchema>;
 
@@ -131,3 +142,9 @@ export type ActivityCommentsResponse = z.infer<typeof activityCommentsResponseSc
 // reads back from a created activity (just enough to attach media next).
 export const activityCreateResponseSchema = z.object({ id: looseNumber });
 export type ActivityCreateResponse = z.infer<typeof activityCreateResponseSchema>;
+
+// POST /buddyboss/v1/activity/{id}/comment — `created` is the only field
+// this project reads; the caller refetches the comment thread rather than
+// trusting the `comments` array this endpoint also returns.
+export const activityCommentCreateResponseSchema = z.object({ created: looseBoolean });
+export type ActivityCommentCreateResponse = z.infer<typeof activityCommentCreateResponseSchema>;

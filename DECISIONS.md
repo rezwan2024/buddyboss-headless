@@ -23,6 +23,41 @@ Format:
 
 ---
 
+## 2026-08-28 — Comments: top-level only, and comment endpoint's empty-response shape
+
+**Decision:** `packages/api-client/src/activity.ts`'s `createActivityComment`
+posts a top-level comment (`POST /buddyboss/v1/activity/{id}/comment` with
+just `content`) — no `parent_id`, so no threaded replies-to-a-reply yet.
+Every activity's comment count is now a clickable button (previously only
+`comment_count > 0` ones were), so a logged-in user can open any activity's
+(empty) thread and post its first comment.
+**Why:** `POST .../comment` needed no `post_title` (confirmed live, unlike
+the main activity-create endpoint — see the entry below), so it was
+otherwise a clean, direct implementation. Threaded replies were left out to
+keep this a verifiable slice; the UI already renders nested `comments`
+recursively (from before this session) so it's a pure additive follow-up
+later, not a redesign.
+**Also found while verifying (real bug, not just a note):** `GET
+/buddyboss/v1/activity/{id}/comment` returns a bare `[]` instead of
+`{comment_count, comments}` when there are zero comments — confirmed live.
+`activityCommentsResponseSchema` was a plain `z.object()` with no top-level
+`.catch()`, so that shape threw an uncaught `ZodError` straight through the
+Server Action. In Next 16 dev, that uncaught ZodError then hit a *second*
+crash — `TypeError: Cannot set property message of [object Object] which
+has only a getter` — while Next tried to process it, which is what actually
+surfaced as a stuck "Loading comments…" that never resolved. This bug
+predates this session (the schema was already written this way), but was
+unreachable until now: previously only activities with `comment_count > 0`
+rendered a clickable button, and none of those ever have an empty response.
+Fixed by normalizing both response shapes in the schema (see
+`packages/types/src/activity.ts`); regression test added in
+`apps/web/lib/activity-schema.test.ts`.
+**Consequence:** `postCommentAction` (`apps/web/app/comment-action.ts`)
+calls `revalidateTag("activity", "max")` after posting — without it, the
+client's post-success refetch just re-read `getActivityComments`'/
+`getActivityFeed`'s existing `next: {tags}` cache and silently showed stale
+data (caught live before shipping, not by the test suite).
+
 ## 2026-08-28 — wp-fetch retries GET/HEAD once on a network-level failure
 
 **Decision:** `packages/api-client/src/wp-fetch.ts`'s `wpFetch()` retries the

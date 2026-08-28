@@ -1,6 +1,7 @@
 "use client";
 
 import { decodeEntities, parseReactedNames, timeAgo } from "@/lib/format";
+import { useSessionUser } from "@/lib/use-session-user";
 import type { Activity } from "@buddyboss-headless/types";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import Image from "next/image";
@@ -79,7 +80,7 @@ function LikesButton({ activity }: { activity: Activity }) {
   );
 }
 
-function ActivityItem({ activity }: { activity: Activity }) {
+function ActivityItem({ activity, isLoggedIn }: { activity: Activity; isLoggedIn: boolean }) {
   const [commentsOpen, setCommentsOpen] = useState(false);
 
   return (
@@ -179,21 +180,17 @@ function ActivityItem({ activity }: { activity: Activity }) {
             </div>
           )}
           <div className="mt-1 flex items-center gap-1 text-xs text-black/40 dark:text-white/40">
-            {activity.comment_count > 0 ? (
-              <button
-                type="button"
-                onClick={() => setCommentsOpen((open) => !open)}
-                className="underline-offset-2 hover:underline"
-              >
-                {activity.comment_count} comments
-              </button>
-            ) : (
-              <span>0 comments</span>
-            )}
+            <button
+              type="button"
+              onClick={() => setCommentsOpen((open) => !open)}
+              className="underline-offset-2 hover:underline"
+            >
+              {activity.comment_count} comments
+            </button>
             <span>·</span>
             <LikesButton activity={activity} />
           </div>
-          {commentsOpen && <ActivityComments activityId={activity.id} />}
+          {commentsOpen && <ActivityComments activityId={activity.id} isLoggedIn={isLoggedIn} />}
         </div>
       </div>
     </li>
@@ -225,6 +222,7 @@ export default function ActivityFeedList({
 
   const items = data.pages.flatMap((page) => page.items);
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const isLoggedIn = Boolean(useSessionUser());
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
@@ -248,7 +246,7 @@ export default function ActivityFeedList({
     <>
       <ul className="mt-6">
         {items.map((activity) => (
-          <ActivityItem key={activity.id} activity={activity} />
+          <ActivityItem key={activity.id} activity={activity} isLoggedIn={isLoggedIn} />
         ))}
       </ul>
       {hasNextPage && (

@@ -12,23 +12,23 @@ reasoning in `DECISIONS.md`, rules in `CLAUDE.md`.
 
 **Phase:** 4 — Authenticated actions — in progress. Done so far: posting to
 the activity feed (text-only, or with a single photo/video/document
-attachment). Still open: comment, favorite/like, join/leave groups, forum
-topics/replies, friends.
-**Next task:** pick the next Phase 4 slice — favorite/like and commenting
-are the most-requested from earlier phases and share the activity feed UI
-already in place, so probably start there.
+attachment), commenting (top-level only — no threaded replies yet). Still
+open: favorite/like, join/leave groups, forum topics/replies, friends.
+**Next task:** pick the next Phase 4 slice — favorite/like is the most
+requested from earlier phases and shares the activity feed UI already in
+place, so probably start there.
 
 ## Blockers
 
-One open, unconfirmed: the user reported a production-only crash ("Minified
-React error #441" — a generic Server Components render error) when posting
-an activity with an image. Not reproduced directly despite 6 live attempts;
-shipped a scoped fix (retry idempotent WP GETs once on a network-level
-failure, see DECISIONS.md) based on circumstantial evidence — this
-project's own `pnpm verify` independently hit `ECONNRESET` against the
-remote WP host in the same session. **If the user hits it again**, start
-`vercel logs buddyboss.vercel.app --follow` *before* they reproduce it, so
-the actual digest/stack trace is caught live instead of scrolling past.
+The production crash reported earlier this session ("Minified React error
+#441" on posting with an image) — fix shipped (retry idempotent WP GETs
+once on a network-level failure) and **confirmed working** by the user
+against production afterward. Root cause was never caught with certainty
+(circumstantial evidence: this project's own `pnpm verify` independently
+hit `ECONNRESET` against the remote WP host in the same session), so if
+something *like* it recurs, don't assume it's the same bug — start `vercel
+logs buddyboss.vercel.app --follow` *before* reproducing, to catch the
+actual digest/stack trace live instead of guessing again.
 
 The Playwright MCP (`.mcp.json`) is confirmed working in-session — used it
 directly to log in, post, and screenshot the result against both localhost
@@ -80,6 +80,40 @@ this list whenever a new one is introduced.
 ---
 
 ## Session log
+
+### 2026-08-28 — Phase 4: comment on activity posts
+
+- `apps/web/app/comment-action.ts` (new) + `activity-comments.tsx` gained a
+  reply form. Top-level comments only — no `parent_id` yet, see
+  DECISIONS.md. `createActivityComment` in `packages/api-client/src/
+  activity.ts`.
+- Every activity's "N comments" is now a clickable button, even at 0 — so a
+  logged-in user can open an empty thread and post the first comment.
+  Previously only `comment_count > 0` items were clickable.
+- That change surfaced a real, pre-existing bug: `GET .../comment` returns
+  a bare `[]` (not `{comment_count, comments}`) when there are zero
+  comments — the schema had no top-level `.catch()`, so it threw an
+  uncaught `ZodError`, which then hit a *second* Next-16-dev-mode crash
+  trying to process it ("Cannot set property message of [object Object]
+  which has only a getter"), manifesting as a permanently-stuck "Loading
+  comments…". Fixed the schema, added a regression test. Caught this by
+  diffing a passing vs. failing `pnpm verify` run against a git stash of
+  the new code — the e2e suite's own flakiness (see below) initially made
+  it look like environmental noise.
+- Extracted the session-cookie-reading hook from `auth-status.tsx` into a
+  shared `apps/web/lib/use-session-user.ts` (`useSessionUser`) — the
+  comment composer needed the same "is anyone logged in" check
+  `<AuthStatus>` already had, done client-side for the same ISR reason.
+- `pnpm verify` and `pnpm build` pass; the e2e suite's `ECONNRESET`
+  flakiness against the remote WP host (see the crash-investigation entry
+  below) surfaced two more transient test failures this session, both
+  confirmed unrelated by rerunning in isolation.
+- Verified live via Playwright MCP: two comments posted back-to-back in the
+  same mount both showed up immediately (same "depend on `state`, not
+  `state.success`" pattern as the post composer). Test comments deleted
+  from the live site afterward.
+- **What to look at:** open any activity's comment count (including "0
+  comments") and post one — should show up immediately, no reload needed.
 
 ### 2026-08-28 — Investigate production crash on image posts, ship a scoped retry
 
