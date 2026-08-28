@@ -41,20 +41,25 @@ class Revalidate {
 			return; // Not configured yet — silently no-op rather than erroring on every save.
 		}
 
+		// blocking => true, deliberately — confirmed live that
+		// blocking => false does not reliably complete: WP's async dispatch
+		// tears the socket down before the HTTPS handshake to Vercel
+		// finishes when the triggering process (WP-CLI, and plausibly some
+		// other short-lived request paths) exits right after firing the
+		// action. A blocking call verified to actually land is worth a
+		// short, bounded delay on saving one of the tracked post types over
+		// a non-blocking call that silently never arrives — this route's
+		// own revalidate window is the fallback either way if this request
+		// itself fails or times out.
 		wp_remote_post(
 			trailingslashit( $frontend_url ) . 'api/revalidate',
 			array(
-				// Best-effort and fire-and-forget: this must never slow down
-				// or block a real editor's save, and nothing here needs the
-				// response — if it fails, the route's own revalidate window
-				// still catches up on its own within a few minutes.
-				'timeout'  => 3,
-				'blocking' => false,
-				'headers'  => array(
+				'timeout' => 5,
+				'headers' => array(
 					'Content-Type'        => 'application/json',
 					'X-Revalidate-Secret' => self::secret(),
 				),
-				'body'     => wp_json_encode( array( 'postType' => $post_type ) ),
+				'body'    => wp_json_encode( array( 'postType' => $post_type ) ),
 			)
 		);
 	}

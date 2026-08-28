@@ -10,12 +10,12 @@ reasoning in `DECISIONS.md`, rules in `CLAUDE.md`.
 
 ## Current state
 
-**Phase:** 6 — Production hardening — **in progress**. Done: caching
-audit, error boundaries/404/500 pages, cookie-flags-per-environment
-review, Lighthouse pass, rate limiting on login. Remaining: cache
-revalidation webhook.
-**Next task:** cache revalidation webhook (WordPress → Next.js on
-`save_post`) — the last Phase 6 item (see PLAN.md).
+**Phase:** 6 — Production hardening — **done**. Caching audit, error
+boundaries/404/500 pages, cookie-flags-per-environment review, Lighthouse
+pass, rate limiting on login, cache revalidation webhook — all shipped
+and verified live.
+**Next task:** none currently planned — Phase 6 (and every phase in
+`PLAN.md`) is complete. Awaiting direction on what's next.
 
 ## Blockers
 
@@ -76,10 +76,62 @@ this list whenever a new one is introduced.
 | `WP_URL` | BuddyBoss REST base URL — `https://st2-rezwan.hz2.developbb.dev`. Set in `apps/web/.env.local` and in Vercel (Production/Preview/Development) via `vercel env add`. |
 | `TEST_USER_LOGIN` / `TEST_USER_PASSWORD` | Dedicated WP test account (`headless-test`, user ID 25, subscriber role) for `tests/e2e/auth.spec.ts`. Local-only, `apps/web/.env.local` only — **not** in Vercel, these tests don't run there. Auth tests skip themselves if unset. |
 | `TEST_USER2_LOGIN` / `TEST_USER2_PASSWORD` | Second dedicated WP test account (`headless-test-2`, user ID 27, subscriber role) — needed for two-way flows a single account can't verify alone (messages, receiving/accepting a friend request). Local-only, same as `TEST_USER_LOGIN` above — **not** in Vercel, no test currently automates against it (used for manual Playwright MCP verification only). |
+| `REVALIDATE_SECRET` | Shared secret authorizing `wp/plugin-headless`'s `save_post` webhook → `POST /api/revalidate`. Must exactly match the WP `headless_revalidate_secret` option (`./scripts/wp option get headless_revalidate_secret`). Set in `.env.local` and all three Vercel environments (via `vercel env add`). |
 
 ---
 
 ## Session log
+
+### 2026-08-28 — Phase 6: Cache revalidation webhook — done, Phase 6 complete
+
+- New `POST /api/revalidate` Route Handler (`apps/web/app/api/revalidate/route.ts`):
+  authorized by a shared secret (`REVALIDATE_SECRET`, timing-safe compared),
+  maps a WordPress post type to the fetch tag it's cached under
+  (`post`→`posts`, `forum`/`topic`/`reply`→`forums`) and purges it
+  immediately via `revalidateTag(tag, { expire: 0 })` — Next's documented
+  way to force an immediate purge from outside a Server Action, where
+  `updateTag()` isn't available. Unknown/untracked post types are
+  acknowledged as a no-op rather than 400ing, so the WP side doesn't need
+  its own allowlist kept in sync.
+- New `wp/plugin-headless/includes/class-revalidate.php`: hooks
+  `save_post`, scoped to the post types this frontend actually caches
+  (`post`, `forum`, `topic`, `reply` — confirmed via `wp post-type list`
+  that bbPress forums/topics/replies really are WP posts on this install,
+  not custom tables). Everything else this app shows (activity, groups,
+  members) isn't stored as a WP post, so `save_post` never fires for it —
+  those keep relying on their existing short revalidate windows (30s–300s)
+  instead, unchanged.
+- Generated a shared secret, set it in `.env.local`, all three Vercel
+  environments (via `vercel env add`, run directly — user opted for this
+  over doing it manually via the dashboard), and the matching
+  `headless_revalidate_secret`/`headless_frontend_url` WP options (the
+  latter pointing at the stable `buddyboss.vercel.app` alias, not an
+  ephemeral per-deployment URL).
+- **Real bug caught by live verification, not assumed correct from
+  reading the code:** the first version used `wp_remote_post(...,
+  ['blocking' => false])`, on the theory that a save hook must never add
+  latency. Triggering it for real (`wp post update` via WP-CLI) showed no
+  evidence the request ever completed — checked directly by grepping the
+  live blog page's rendered content for a changed title, not just
+  trusting a 200 status from WP. The identical call with `blocking =>
+  true` landed every time. Switched to blocking (5s timeout) — full
+  writeup and reasoning in DECISIONS.md, including why "obviously fire-
+  and-forget is correct" was the wrong instinct here.
+- Verified end-to-end for real: changed a live post's title via WP-CLI,
+  confirmed the new title appeared on `buddyboss.vercel.app/blog`
+  immediately after (not after the normal 1-hour blog revalidate window),
+  then reverted it. Measured cost: **~4.6s added to a tracked-post-type
+  save** (`time wp post update`) — a real, bounded tradeoff, documented
+  as a deliberate choice.
+- `pnpm verify`, `pnpm build`, and the plugin's PHPUnit suite (17 tests)
+  all pass; `./scripts/push-plugin --go` deployed twice (once for the
+  initial version, once for the blocking-mode fix) after showing the user
+  each dry run first.
+- **This closes out Phase 6 — every phase in `PLAN.md` is now complete.**
+- **What to look at:** nothing new to look at in the UI. If you ever edit
+  a blog post or a forum topic/reply directly in wp-admin, the save
+  itself will take a few seconds longer than before (~5s worst case) —
+  that's this webhook firing, not a regression.
 
 ### 2026-08-28 — Phase 6: Rate limiting on the login route
 

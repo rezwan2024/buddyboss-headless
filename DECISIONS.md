@@ -23,6 +23,37 @@ Format:
 
 ---
 
+## 2026-08-28 — Revalidation webhook: `wp_remote_post` must be blocking, not fire-and-forget
+
+**Decision:** `Revalidate::notify()` (`wp/plugin-headless/includes/class-revalidate.php`)
+calls `wp_remote_post()` as a normal **blocking** request (5s timeout), not
+`blocking => false`.
+**Why:** the first version used `blocking => false` on the theory that a
+`save_post` webhook must never add latency to a real editor's save.
+Verified live, not assumed: triggering the hook via `wp post update`
+(WP-CLI) with `blocking => false` never produced a request Vercel's logs
+or the frontend's actual cached content showed any sign of — confirmed by
+directly checking the blog listing's rendered content before/after,
+`grep`-ing for the changed title. The *same* call with `blocking => true`
+landed reliably (HTTP 200, correct body) every time. WP's non-blocking
+dispatch tears the socket down as soon as the triggering PHP process
+exits, which happens almost immediately after WP-CLI finishes its
+command — there's no `fastcgi_finish_request()`-style teardown keeping
+the process alive long enough for the async HTTPS handshake to Vercel to
+actually complete. A silently-never-arriving "fire and forget" call makes
+the entire feature a no-op, which is strictly worse than a bounded delay
+on saving one of four tracked post types.
+**Alternatives:** kept `blocking => false` and accepted the risk — rejected
+once confirmed it doesn't actually work from at least one real trigger
+path (WP-CLI), and there was no way to be confident it reliably works from
+every other trigger path (wp-admin's own request lifecycle, REST API
+edits) without the same live verification, which would have meant testing
+each path anyway. A message queue / cron-based async dispatch — real
+overengineering for a `save_post` hook on a handful of post types on a
+low-traffic site; the accepted tradeoff (≈4.6s measured added latency on
+save, verified live, bounded by the 5s timeout) is a better fit for this
+project's actual scale.
+
 ## 2026-08-28 — Login rate limiting: in-memory, per-IP, not an external store
 
 **Decision:** `lib/rate-limit.ts` keeps failed-login counts in a plain
