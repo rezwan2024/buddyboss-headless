@@ -20,6 +20,15 @@
   }
 }
 
+html {
+  /* Every Tailwind text-* utility is defined in rem, relative to this —
+     bumping it from the 16px browser default scales every size in the
+     app proportionally (headings, body copy, meta text alike) rather
+     than hunting down each text-xs/text-sm className individually. User
+     feedback: the whole site read too small. */
+  font-size: 18px;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
