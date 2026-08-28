@@ -6,6 +6,14 @@ export interface GetGroupsParams {
   page?: number;
   perPage?: number;
   search?: string;
+  /**
+   * Filter to groups a specific member belongs to — confirmed live via
+   * `?user_id=`. Per-user, so pass `accessToken` alongside it (and expect
+   * `no-store`) the same way `getMember`/`getGroup` do; omit both for the
+   * public, ISR-cached directory read.
+   */
+  userId?: number;
+  accessToken?: string;
 }
 
 /** Groups directory — `GET /buddyboss/v1/groups`. Public, no auth. */
@@ -17,9 +25,13 @@ export async function getGroups(params: GetGroupsParams = {}): Promise<WpList<Gr
     per_page: String(perPage),
   });
   if (params.search) query.set("search", params.search);
+  if (params.userId) query.set("user_id", String(params.userId));
 
   return wpFetchList(`/buddyboss/v1/groups?${query}`, (body) => groupListSchema.parse(body), {
-    next: { revalidate: 300, tags: ["groups"] },
+    accessToken: params.accessToken,
+    ...(params.accessToken
+      ? { cache: "no-store" }
+      : { next: { revalidate: 300, tags: ["groups"] } }),
   });
 }
 

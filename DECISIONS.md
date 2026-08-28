@@ -23,6 +23,54 @@ Format:
 
 ---
 
+## 2026-08-28 — Home page sidebars scoped to real features, not a literal reference clone
+
+**Decision:** The activity home page's new left/right sidebars (matching
+a reference BuddyBoss community site's dashboard layout) show "Latest
+Discussions" + "Groups" (left) and "Complete your profile" + "Latest
+updates" (right) — not the reference's Events, Courses (LMS), or curated
+Links sections.
+**Why:** this app has no Events feature and `PLAN.md` explicitly puts
+LMS/course integration out of scope; a curated "Links" section is
+site-specific editorial content with no equivalent data source here.
+Building placeholder sections for features that don't exist would be
+worse than omitting them — a fake "Courses" list linking nowhere real is
+not a faithful implementation of anything. Asked the user directly which
+real sections to include rather than guessing at a 1:1 visual clone.
+**Alternatives:** none seriously considered — this follows directly from
+what the app actually has.
+
+## 2026-08-28 — Home page dashboard's e2e slowdown was WP backend
+concurrency, not the new sidebars
+
+**Decision:** Shipped the sidebar cards as designed (four independent
+Server Components, each its own `<Suspense>` boundary) without further
+reducing their data-fetching footprint beyond the one genuinely redundant
+call found (see PROGRESS.md's session log).
+**Why:** the full e2e suite went from ~20s/0-2-flaky to multi-minute runs
+with 10-24 failures right after this landed, which looked at first like
+the new sidebars had made the homepage too expensive. Investigated before
+concluding that, rather than after: the dev server's own request log
+showed 10-30s+ response times and `ECONNRESET` on routes this change
+never touched at all (`/groups`, `/members`, `/forums`) — a code defect
+in the sidebar work cannot explain a slowdown on pages that don't render
+it. A direct, single `curl` against the WP API responded normally
+(~2s) both before and after the failing runs; `--workers=1` (no
+concurrent load) brought the suite back to 23/25 passing. This is the
+shared remote dev site's own concurrency ceiling, already documented
+elsewhere in this project (the `fetchWithRetry`/`ECONNRESET` entry, and
+the revalidation webhook's own live-verified reliability issues above) —
+not something introduced by or fixable in this app's code.
+**Alternatives:** could have preemptively gutted the sidebars' data
+fetching (e.g., dropped "Complete your profile" or "My Groups" as
+"too expensive") based on the failing suite alone — rejected, since that
+would have been optimizing against a measurement that turned out not to
+mean what it first appeared to. Did make two changes that were correct
+regardless of this diagnosis: `<Suspense>`-wrapped each card (real
+streaming benefit, independent of *why* the suite was slow) and removed
+"Latest updates"' redundant fetch (real duplicate work, worth removing on
+its own merits).
+
 ## 2026-08-28 — Revalidation webhook: `wp_remote_post` must be blocking, not fire-and-forget
 
 **Decision:** `Revalidate::notify()` (`wp/plugin-headless/includes/class-revalidate.php`)

@@ -68,6 +68,25 @@ export async function getTopics(forumId: number, params: PageParams = {}): Promi
   });
 }
 
+/**
+ * Latest topics site-wide, across every forum — `GET /buddyboss/v1/topics`
+ * with no `parent` filter, `orderby=date&order=desc`. Confirmed live: the
+ * unfiltered collection is already sorted by activity/recency, not
+ * insertion order. Used for the activity page's "Latest Discussions"
+ * sidebar, not any per-forum screen.
+ */
+export async function getRecentTopics(params: PageParams = {}): Promise<WpList<Topic>> {
+  const query = new URLSearchParams({
+    orderby: "date",
+    order: "desc",
+    page: String(params.page ?? 1),
+    per_page: String(params.perPage ?? 5),
+  });
+  return wpFetchList(`/buddyboss/v1/topics?${query}`, (body) => topicListSchema.parse(body), {
+    next: { revalidate: 300, tags: ["forums"] },
+  });
+}
+
 /** Single topic — `GET /buddyboss/v1/topics/{id}`. Public, no auth. */
 export async function getTopic(id: number): Promise<Topic> {
   return wpFetchJson(`/buddyboss/v1/topics/${id}`, (body) => topicSchema.parse(body), {

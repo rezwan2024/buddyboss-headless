@@ -13,9 +13,14 @@ reasoning in `DECISIONS.md`, rules in `CLAUDE.md`.
 **Phase:** 6 — Production hardening — **done**. Caching audit, error
 boundaries/404/500 pages, cookie-flags-per-environment review, Lighthouse
 pass, rate limiting on login, cache revalidation webhook — all shipped
-and verified live.
-**Next task:** none currently planned — Phase 6 (and every phase in
-`PLAN.md`) is complete. Awaiting direction on what's next.
+and verified live. Post-Phase-6: user-requested fixes/polish, taken one
+at a time (see session log) — header layout, site-wide font size, and a
+3-column dashboard layout for the activity home page (left sidebar:
+latest discussions + the user's groups; right sidebar: profile
+completeness + latest updates), matching a reference BuddyBoss community
+site's design.
+**Next task:** none currently planned — awaiting the next item in that
+list from the user.
 
 ## Blockers
 
@@ -32,6 +37,18 @@ actual digest/stack trace live instead of guessing again.
 The Playwright MCP (`.mcp.json`) is confirmed working in-session — used it
 directly to log in, post, and screenshot the result against both localhost
 and the live production URL.
+
+**The remote WP dev site struggles under concurrent load.** Confirmed
+2026-08-28: running the full `@smoke` e2e suite with Playwright's default
+4 parallel workers caused widespread timeouts and `ECONNRESET` errors —
+including on routes untouched by that session's changes (`/groups`,
+`/members`, `/forums`, `/blog`), ruling out a code regression. A single
+direct request against the WP API responded normally (~2s) both before
+and after; `--workers=1` brought the suite back to 23/25 passing. Not
+something to fix in this repo — it's the shared host's own concurrency
+ceiling. If `pnpm verify`/`pnpm test:e2e` looks unexpectedly bad, try
+`pnpm exec playwright test --grep @smoke --workers=1` before assuming a
+real regression.
 
 ## How to see the frontend
 
@@ -81,6 +98,96 @@ this list whenever a new one is introduced.
 ---
 
 ## Session log
+
+### 2026-08-28 — Activity home page: 3-column dashboard layout
+
+- User asked to match a reference BuddyBoss community site's home page:
+  left sidebar, center feed, right sidebar. Scoped down to this app's real
+  features rather than a literal clone — the reference's Events/Courses
+  (LMS)/curated Links sections don't map to anything this app has (see
+  `PLAN.md`'s explicit LMS-out-of-scope note). Per the user's own
+  clarification: left sidebar gets "Latest Discussions" (recent forum
+  topics site-wide) and "Groups" (the logged-in user's own joined
+  groups); right sidebar gets "Complete your profile" (a real, computed
+  percentage — not a placeholder) and "Latest updates".
+- New `packages/api-client/src/xprofile.ts` (`getXProfileFieldDefinitions`,
+  the canonical per-install field list, ISR-cached — it's the same for
+  every viewer), `getRecentTopics` in `forums.ts` (site-wide latest
+  topics, no `parent` filter — confirmed live the unfiltered collection
+  is already sorted by recency), and an optional `userId`/`accessToken`
+  on `getGroups` (confirmed live via `?user_id=` — filters to a member's
+  actual joined groups).
+- `memberDetailSchema` gained `xprofile` (a member's own filled-in
+  fields — confirmed live that BuddyBoss omits an unfilled field
+  entirely rather than sending it empty) and `avatar_urls.is_default`/
+  `cover_is_default` (booleans BuddyBoss already computes for exactly
+  this "has a real photo?" question — no extra logic needed).
+- New `lib/profile-completeness.ts` (`computeProfileCompleteness`) —
+  counts only *required* xprofile fields (cross-referencing a member's
+  filled fields against the canonical definitions) plus avatar/cover, not
+  every optional field this install happens to have configured. 3 unit
+  tests built directly from real, live-verified data shapes (a
+  partially-filled real profile, a fully-filled one, and one with only
+  optional fields filled — confirms optional fields don't count).
+- Four new sidebar cards (`home-*-card.tsx`), each its own Server
+  Component. "My Groups" and "Complete your profile" render nothing when
+  logged out (nothing personal to show); "Latest Discussions" is public.
+  "Latest updates" takes the main feed's already-fetched items as a prop
+  instead of making its own redundant WP call for near-identical data.
+- **Real, if indirect, bug caught along the way:** the e2e suite went
+  from its usual ~20s/0-2-flaky to repeated multi-minute runs with 10-24
+  failures after this landed. Investigated rather than assuming the new
+  sidebars were simply too slow — checked the dev server's own request
+  log first, which showed 10-30s+ response times and `ECONNRESET` on
+  routes this change never touched (`/groups`, `/members`, `/forums`),
+  proving it wasn't a code defect. Traced to the shared remote WP dev
+  site's concurrency ceiling under Playwright's 4 parallel workers (see
+  Blockers) — confirmed by `--workers=1` bringing the suite back to
+  23/25. Still made two real improvements while investigating: wrapped
+  each sidebar card in its own `<Suspense>` (so the feed streams as soon
+  as its own fetch resolves, not gated on every sidebar's data too), and
+  eliminated "Latest updates"' redundant fetch entirely (reuses the
+  page's own feed data).
+- `pnpm verify` (with `--workers=1` for the e2e portion — see Blockers),
+  `pnpm build` pass. Verified live via Playwright MCP: profile
+  completeness showed 29% for `headless-test` with a correct 2/5 required
+  fields breakdown, matching the number independently computed by hand
+  from the same live data during the unit-test-writing step; groups,
+  discussions, and updates all rendered real data with correct links.
+- **What to look at:** the home page (`/`) at a wide viewport (sidebars
+  hide below `lg`, ~1024px) — left sidebar (Latest Discussions, your
+  Groups), right sidebar (Complete your profile %, Latest updates).
+
+### 2026-08-28 — Header layout + site-wide font size
+
+- User feedback with a screenshot: header content was squeezed into the
+  same narrow `max-w-2xl` column as page content, logo and nav bunched
+  together on the left with large empty margins on wide screens; text
+  throughout the site read too small.
+- Rewrote the header as a full-width 3-column grid (`grid-cols-[1fr_auto_1fr]`) —
+  logo pinned to the left edge, nav centered in the available space,
+  account menu pinned to the right edge. No `max-w` cap, deliberately —
+  the arrows in the user's screenshot pointed at the true browser edges,
+  not a capped-but-still-centered column.
+- Bumped the root `font-size` from the 16px browser default to 18px in
+  `globals.css` — every Tailwind `text-*` utility is `rem`-based, so this
+  scales every size in the app proportionally (headings, body copy, meta
+  text) without touching each `className` individually.
+- Fixed a real bug this surfaced in an existing e2e test: `scrolling
+  loads more activity` asserted on `page.locator("li")` counts across the
+  *whole page* — harmless before, since only the main feed had any
+  `<li>` elements, but wrong once the same page could have unrelated
+  `<li>`s elsewhere. Scoped to `main li` instead (see the sidebar entry
+  above for what would have broken it for real).
+- Verified live via Playwright MCP at 1600px, 2400px, and 375px — logo/
+  nav/account correctly pinned at the two wider sizes; noted (not fixed,
+  out of scope for this ask) that the header's nav item list doesn't wrap
+  or scroll at 375px and overflows — pre-existing before this change too,
+  flagged to the user rather than silently left unmentioned.
+- `pnpm verify` and `pnpm build` pass.
+- **What to look at:** the header at a normal desktop width — logo far
+  left, nav centered, account icon far right. Text throughout should read
+  noticeably larger than before.
 
 ### 2026-08-28 — Phase 6: Cache revalidation webhook — done, Phase 6 complete
 

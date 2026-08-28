@@ -10,3 +10,4 @@ export * from "./messages";
 export * from "./notifications";
 export * from "./posts";
 export * from "./site";
+export * from "./xprofile";
