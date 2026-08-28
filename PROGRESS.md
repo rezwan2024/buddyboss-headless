@@ -12,11 +12,11 @@ reasoning in `DECISIONS.md`, rules in `CLAUDE.md`.
 
 **Phase:** 4 — Authenticated actions — in progress. Done so far: posting to
 the activity feed (text-only, or with a single photo/video/document
-attachment), commenting (top-level only — no threaded replies yet). Still
-open: favorite/like, join/leave groups, forum topics/replies, friends.
-**Next task:** pick the next Phase 4 slice — favorite/like is the most
-requested from earlier phases and shares the activity feed UI already in
-place, so probably start there.
+attachment), commenting (top-level only — no threaded replies yet),
+favorite/like (toggle, plus the existing "who liked" popover). Still open:
+join/leave groups, forum topics/replies, friends.
+**Next task:** pick the next Phase 4 slice — join/leave groups is probably
+the simplest remaining one (single toggle, no composer/thread UI needed).
 
 ## Blockers
 
@@ -80,6 +80,31 @@ this list whenever a new one is introduced.
 ---
 
 ## Session log
+
+### 2026-08-28 — Phase 4: like/unlike an activity post
+
+- `PATCH /buddyboss/v1/activity/{id}/favorite` is a pure toggle (no body —
+  server decides add-vs-remove from current state, confirmed live), so
+  `toggleActivityFavorite` (`packages/api-client/src/activity.ts`) and
+  `toggleFavoriteAction` (new, `apps/web/app/favorite-action.ts`) are both
+  small. Reused `activitySchema` for the response since it's the full
+  updated activity.
+- `activity-feed-list.tsx`'s old `LikesButton` (read-only count + "who
+  liked" popover) became `LikesRow`: a thumb-icon toggle button (filled
+  blue when `activity.favorited`) sits next to the existing count/popover,
+  which is unchanged. Only enabled when logged in.
+- Deliberately not optimistic: the toggle button calls the action and waits
+  for the result before invalidating the feed query, same discipline as
+  `favorite-action.ts` documents — this codebase already paid for an
+  optimistic-update bug once (see the logout fix in git history) and isn't
+  paying for it twice.
+- Verified live via Playwright MCP: toggled a real post's like on and off
+  (count and icon updated correctly both times), and confirmed the
+  existing "who liked" popover still opens correctly on a post with a real
+  like from another account.
+- `pnpm verify` and `pnpm build` pass.
+- **What to look at:** the thumb icon next to any post's like count — click
+  to like/unlike, click the count text itself to see who liked it.
 
 ### 2026-08-28 — Phase 4: comment on activity posts
 

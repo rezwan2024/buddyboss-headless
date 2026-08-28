@@ -3,6 +3,7 @@ import {
   activityCommentsResponseSchema,
   activityCreateResponseSchema,
   activityListSchema,
+  activitySchema,
 } from "@buddyboss-headless/types";
 import type { Activity, ActivityCommentsResponse } from "@buddyboss-headless/types";
 import { type WpList, wpFetchJson, wpFetchList } from "./wp-fetch";
@@ -87,6 +88,26 @@ export async function getActivityComments(activityId: number): Promise<ActivityC
     `/buddyboss/v1/activity/${activityId}/comment`,
     (body) => activityCommentsResponseSchema.parse(body),
     { next: { revalidate: 30, tags: ["activity"] } },
+  );
+}
+
+/**
+ * Toggle the current user's favorite (like) on an activity — `PATCH
+ * /buddyboss/v1/activity/{id}/favorite`. Pure toggle, no body: the server
+ * decides add-vs-remove from whether the activity is already in the user's
+ * favorites (confirmed live — two calls in a row flip `favorited` each
+ * time). The response is the full updated activity, reused here for its
+ * `favorited`/`favorite_count`/`reacted_names`.
+ */
+export async function toggleActivityFavorite(activityId: number, accessToken: string) {
+  return wpFetchJson(
+    `/buddyboss/v1/activity/${activityId}/favorite`,
+    (body) => activitySchema.parse(body),
+    {
+      method: "PATCH",
+      accessToken,
+      cache: "no-store",
+    },
   );
 }
 

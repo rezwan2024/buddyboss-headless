@@ -3,11 +3,12 @@
 import { decodeEntities, parseReactedNames, timeAgo } from "@/lib/format";
 import { useSessionUser } from "@/lib/use-session-user";
 import type { Activity } from "@buddyboss-headless/types";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { loadActivityPage } from "./actions";
 import ActivityComments from "./activity-comments";
+import { toggleFavoriteAction } from "./favorite-action";
 
 function ThumbIcon({ className }: { className?: string }) {
   return (
@@ -33,49 +34,79 @@ function DocumentIcon({ className }: { className?: string }) {
   );
 }
 
-function LikesButton({ activity }: { activity: Activity }) {
+function LikesRow({ activity, isLoggedIn }: { activity: Activity; isLoggedIn: boolean }) {
   const [open, setOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const names = parseReactedNames(activity.reacted_names);
 
-  if (activity.favorite_count === 0) {
-    return (
-      <span className="inline-flex items-center gap-1">
-        <ThumbIcon className="h-3 w-3" />0 likes
-      </span>
-    );
+  function handleToggle() {
+    setError(null);
+    startTransition(async () => {
+      // Wait for the result before touching any state — see
+      // favorite-action.ts for why (this codebase already learned that
+      // lesson the hard way with the logout button).
+      const result = await toggleFavoriteAction(activity.id);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      queryClient.invalidateQueries({ queryKey: ["activity-feed"] });
+    });
   }
 
   return (
-    <span className="relative inline-block">
+    <span className="inline-flex items-center gap-1">
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="inline-flex items-center gap-1 underline-offset-2 hover:underline"
+        onClick={isLoggedIn ? handleToggle : undefined}
+        disabled={isPending || !isLoggedIn}
+        aria-label={activity.favorited ? "Unlike" : "Like"}
+        aria-pressed={activity.favorited}
+        className="disabled:cursor-default"
       >
-        <ThumbIcon className="h-3 w-3" />
-        {activity.favorite_count} likes
+        <ThumbIcon
+          className={`h-3 w-3 ${activity.favorited ? "text-blue-600 dark:text-blue-400" : ""}`}
+        />
       </button>
-      {open && (
-        <>
+      {activity.favorite_count === 0 ? (
+        <span>0 likes</span>
+      ) : (
+        <span className="relative inline-block">
           <button
             type="button"
-            aria-label="Close"
-            className="fixed inset-0 z-10 cursor-default"
-            onClick={() => setOpen(false)}
-          />
-          <div className="absolute bottom-full left-0 z-20 mb-1 w-max max-w-56 rounded border border-black/10 bg-white p-2 shadow-lg dark:border-white/10 dark:bg-neutral-900">
-            {names.length > 0 ? (
-              names.map((name) => (
-                <p key={name} className="text-black/70 dark:text-white/70">
-                  {name}
-                </p>
-              ))
-            ) : (
-              <p className="text-black/50 dark:text-white/50">Liked by {activity.favorite_count}</p>
-            )}
-          </div>
-        </>
+            onClick={() => setOpen((o) => !o)}
+            className="underline-offset-2 hover:underline"
+          >
+            {activity.favorite_count} likes
+          </button>
+          {open && (
+            <>
+              <button
+                type="button"
+                aria-label="Close"
+                className="fixed inset-0 z-10 cursor-default"
+                onClick={() => setOpen(false)}
+              />
+              <div className="absolute bottom-full left-0 z-20 mb-1 w-max max-w-56 rounded border border-black/10 bg-white p-2 shadow-lg dark:border-white/10 dark:bg-neutral-900">
+                {names.length > 0 ? (
+                  names.map((name) => (
+                    <p key={name} className="text-black/70 dark:text-white/70">
+                      {name}
+                    </p>
+                  ))
+                ) : (
+                  <p className="text-black/50 dark:text-white/50">
+                    Liked by {activity.favorite_count}
+                  </p>
+                )}
+              </div>
+            </>
+          )}
+        </span>
       )}
+      {error && <span className="text-red-700 dark:text-red-400">{error}</span>}
     </span>
   );
 }
@@ -188,7 +219,7 @@ function ActivityItem({ activity, isLoggedIn }: { activity: Activity; isLoggedIn
               {activity.comment_count} comments
             </button>
             <span>·</span>
-            <LikesButton activity={activity} />
+            <LikesRow activity={activity} isLoggedIn={isLoggedIn} />
           </div>
           {commentsOpen && <ActivityComments activityId={activity.id} isLoggedIn={isLoggedIn} />}
         </div>

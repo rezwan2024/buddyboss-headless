@@ -23,6 +23,27 @@ Format:
 
 ---
 
+## 2026-08-28 — Like/favorite: no optimistic UI, wait for the toggle result
+
+**Decision:** `LikesRow`'s like button (`apps/web/app/activity-feed-list.tsx`)
+calls `toggleFavoriteAction` and only invalidates the feed query — updating
+the UI — after it resolves. No local optimistic state.
+**Why:** `PATCH /buddyboss/v1/activity/{id}/favorite` is a pure toggle with
+no body; the server decides add-vs-remove from whether the activity is
+already in the user's favorites (confirmed live: two calls in a row flip
+`favorited` each time). That makes optimistic UI riskier than usual here —
+if a click's request is ever lost or duplicated (double-click, slow
+network + retry), an optimistic client guess can end up permanently
+disagreeing with the server's actual toggle state, with no way to detect
+it. This project has already been burned by an optimistic-update bug once
+(the logout button setting state before its action resolved, breaking
+logout entirely — see git history), so the deliberate choice here is to
+eat one round-trip of latency rather than risk a repeat, however unlikely
+the specific failure mode.
+**Alternatives:** optimistic toggle with rollback-on-error — rejected for
+the reason above; the desync risk outweighs the latency win for a
+low-frequency action like a like button.
+
 ## 2026-08-28 — Comments: top-level only, and comment endpoint's empty-response shape
 
 **Decision:** `packages/api-client/src/activity.ts`'s `createActivityComment`
