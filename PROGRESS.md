@@ -10,10 +10,10 @@ reasoning in `DECISIONS.md`, rules in `CLAUDE.md`.
 
 ## Current state
 
-**Phase:** 5 — Messages and notifications — **in progress**. Messages
-(thread list, single thread, send new/reply, unread badge + mark-read) is
-done. Notifications not started.
-**Next task:** Notifications (see PLAN.md).
+**Phase:** 5 — Messages and notifications — **done**. Messages (thread
+list, single thread, send new/reply, unread badge + mark-read) and
+notifications (list, mark read, unread count badge, polling) both live.
+**Next task:** Phase 6 — Production hardening (see PLAN.md). Not started.
 
 ## Blockers
 
@@ -78,6 +78,55 @@ this list whenever a new one is introduced.
 ---
 
 ## Session log
+
+### 2026-08-28 — Phase 5: Notifications — done, Phase 5 complete
+
+- New `packages/types/src/notification.ts` and `packages/api-client/src/
+  notifications.ts` (`getNotifications`, `getUnreadNotificationCount`,
+  `markNotificationRead`). `/notifications` (infinite-scroll list —
+  `NotificationsList`) plus a header nav badge (`NotificationsNavLink`,
+  polling every 60s via `useQuery({ refetchInterval })` — Phase 5 scope is
+  "polling first, real-time only if it proves necessary" per `PLAN.md`).
+- The list endpoint's `is_new` filter has no "all" mode — `true` (default)
+  is unread-only, `false` is read-only, confirmed live. The unread badge
+  reuses the same call with `per_page=1`, reading `X-WP-Total` — no
+  separate count endpoint exists.
+- `docs/routes.txt` lists a bulk `/notifications/bulk/read` route that
+  **404s live** — there is no mark-all-read endpoint. Each notification is
+  marked read individually via `PATCH /notifications/{id}` with
+  `{is_new: 0}`; re-marking an already-read one 500s
+  (`bp_rest_user_cannot_update_notification_status`) — treated as a no-op,
+  not surfaced as an error.
+- Security-relevant fix caught before shipping, not after: a
+  notification's `description.rendered` is HTML with an `<a href>` already
+  pointing at the raw WordPress host (`link_url`) baked in — rendering it
+  with `dangerouslySetInnerHTML` (the pattern used for message/activity
+  content) would have leaked a link straight to WordPress, breaking this
+  project's core BFF rule. Added `stripTags()` to `lib/format.ts` instead —
+  notifications render as plain text, no link.
+- Verified live via Playwright MCP: sent a real friend request from
+  `headless-test-2` → `headless-test` via curl to generate a real
+  notification (messages don't generate one on this install — confirmed
+  during research, not assumed), confirmed it rendered correctly
+  (avatar, plain-text description, no leaked HTML/links) alongside the
+  account's one pre-existing real notification, badge showed "2". Clicked
+  "Mark as read" — notification disappeared from the list and the badge
+  dropped to "1", no reload. Test notification row and friendship row
+  deleted directly from the DB afterward (`wp db query DELETE ...` — the
+  REST `DELETE /friends/{id}` path wasn't used since the notification row
+  needed direct cleanup anyway once already marked read).
+- `pnpm verify` and `pnpm build` pass (25/25 e2e including the two flakes
+  from last session, both stable this run — confirmed pre-existing
+  flakiness, not a regression).
+- **This closes out Phase 5.** Messages and notifications both work
+  end to end. Phase 6 (production hardening) is next, not started.
+- **What to look at:** `/notifications` while logged in — the header badge
+  count and the "Mark as read" button on each item. Not covered by this
+  slice: a "read" tab (only unread notifications are listed; the API
+  supports fetching read ones too if that's wanted later), mark-all-read
+  (no endpoint exists for it), and any deep-linking from a notification
+  into the specific thing it's about (kept intentionally plain-text/inert
+  for now — see the BFF-link gotcha above).
 
 ### 2026-08-28 — Phase 5: Messages (thread list, single thread, send/reply)
 

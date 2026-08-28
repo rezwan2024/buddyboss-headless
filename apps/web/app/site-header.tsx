@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import AuthStatus from "./auth-status";
 import MessagesNavLink from "./messages-nav-link";
+import NotificationsNavLink from "./notifications-nav-link";
 
 // No logo/site icon is configured on the dev site yet (site_icon_url comes
 // back empty) — falls back to the site name as text branding. If a logo
@@ -43,6 +44,7 @@ export default async function SiteHeader() {
             Blog
           </Link>
           <MessagesNavLink />
+          <NotificationsNavLink />
           <AuthStatus />
         </nav>
       </div>

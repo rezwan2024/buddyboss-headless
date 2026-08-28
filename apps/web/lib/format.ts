@@ -9,6 +9,15 @@ export function decodeEntities(text: string): string {
     .replace(/&gt;/g, ">");
 }
 
+// Notification descriptions come back as HTML with an `<a href>` pointing
+// at the raw WordPress host baked in — never render that with
+// dangerouslySetInnerHTML, it would leak a link to WordPress into the
+// browser (this project never lets that happen, see the member-profile
+// `link` field fix in DECISIONS.md). Strip tags to get safe plain text.
+export function stripTags(html: string): string {
+  return decodeEntities(html.replace(/<[^>]*>/g, "")).trim();
+}
+
 /** "First Responders Children's Foundation, Shakeel Ahmad" -> array of decoded names. */
 export function parseReactedNames(reactedNames: string): string[] {
   return reactedNames

@@ -8,11 +8,13 @@ import {
   getGroupMembers,
   getGroups,
   getMembers,
+  getNotifications,
   getPosts,
   getRepliesWithAuthors,
   getThread,
   getThreads,
   getTopicsWithAuthors,
+  getUnreadNotificationCount,
 } from "@buddyboss-headless/api-client";
 
 const PER_PAGE = 20;
@@ -103,4 +105,22 @@ export async function loadThread(threadId: number) {
   const accessToken = await getAccessToken();
   if (!accessToken) return null;
   return getThread(threadId, accessToken);
+}
+
+/** Called client-side by the infinite-scroll notifications list. */
+export async function loadNotificationsPage(page: number) {
+  const accessToken = await getAccessToken();
+  if (!accessToken) return { items: [], total: 0, pages: 1 };
+  return getNotifications(accessToken, { page, perPage: PER_PAGE });
+}
+
+/**
+ * Called client-side by the header's notification badge, polled on an
+ * interval (see `notifications-nav-link.tsx`) — Phase 5 scope is "polling
+ * first, real-time only if it proves necessary" per PLAN.md.
+ */
+export async function loadUnreadNotificationCount() {
+  const accessToken = await getAccessToken();
+  if (!accessToken) return 0;
+  return getUnreadNotificationCount(accessToken);
 }

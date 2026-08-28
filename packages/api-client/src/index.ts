@@ -7,5 +7,6 @@ export * from "./groups";
 export * from "./media";
 export * from "./members";
 export * from "./messages";
+export * from "./notifications";
 export * from "./posts";
 export * from "./site";

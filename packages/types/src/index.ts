@@ -5,5 +5,6 @@ export * from "./group";
 export * from "./media";
 export * from "./member";
 export * from "./message";
+export * from "./notification";
 export * from "./post";
 export * from "./site";

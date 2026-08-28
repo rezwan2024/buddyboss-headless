@@ -23,6 +23,28 @@ Format:
 
 ---
 
+## 2026-08-28 — Notifications: no bulk mark-read, and never render `description.rendered` raw
+
+**Decision:** Notifications are marked read one at a time (`PATCH
+/notifications/{id}` with `{is_new: 0}`), and rendered as plain text via a
+new `stripTags()` helper (`apps/web/lib/format.ts`), never with
+`dangerouslySetInnerHTML`.
+**Why:** `docs/routes.txt` lists `/buddyboss/v1/notifications/bulk/read`,
+but it 404s live — confirmed, not assumed; there is no bulk-mark-all-read
+endpoint on this install, so a "mark all read" button isn't implementable
+without N individual PATCH calls. Separately, `description.rendered` comes
+back as HTML with a `<a href="...">` already pointing at the live
+WordPress host (the same `link_url` field, inlined) — rendering it raw the
+way message/activity content is rendered elsewhere in this codebase would
+put a real WordPress URL in front of the user, which is exactly the "BFF
+leak" this project already fixed once (see the 2026-08-27 member-profile
+`link`-field entry below). Caught before shipping this time, by noticing
+the pattern rather than by a user report.
+**Alternatives:** parse and rewrite the anchor's `href` to an internal
+route per notification `component` (e.g. `friends` → `/members/{id}`) —
+more correct long-term, but out of scope for this slice; plain text is
+safe and simple, and can be upgraded later without touching the schema.
+
 ## 2026-08-28 — Messages: no server-side thread dedup, and a counter-intuitive "mark read" flag
 
 **Decision:** Before sending a first message to someone (`message-action.ts`'s
