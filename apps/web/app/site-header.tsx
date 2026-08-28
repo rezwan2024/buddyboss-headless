@@ -50,10 +50,12 @@ export default async function SiteHeader() {
           <Link href="/blog" className="hover:text-black dark:hover:text-white">
             Blog
           </Link>
-          <MessagesNavLink />
-          <NotificationsNavLink />
         </nav>
-        <div className="justify-self-end">
+        {/* Notification, message, and account icons grouped together on the
+            right edge, in that order — not in the centered nav. */}
+        <div className="flex items-center gap-2 justify-self-end">
+          <NotificationsNavLink />
+          <MessagesNavLink />
           <AuthStatus />
         </div>
       </div>
