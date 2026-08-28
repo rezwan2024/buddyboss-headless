@@ -1,4 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server";
+import {
+  ACCESS_TOKEN_COOKIE,
+  REFRESH_TOKEN_COOKIE,
+  USER_COOKIE,
+  accessTokenCookieOptions,
+  expiredCookieOptions,
+  refreshTokenCookieOptions,
+  userCookieOptions,
+} from "./lib/session-cookies";
 
 // "Refresh-and-retry" can't literally live inside wp-fetch — a Server
 // Component can't write cookies mid-render in Next.js, and that's the only
@@ -8,11 +17,6 @@ import { type NextRequest, NextResponse } from "next/server";
 // access-token cookie, it's already current. See DECISIONS.md for the full
 // reasoning.
 
-const ACCESS_TOKEN_COOKIE = "hl_access";
-const REFRESH_TOKEN_COOKIE = "hl_refresh";
-const USER_COOKIE = "hl_user";
-
-const REFRESH_TOKEN_MAX_AGE = 30 * 24 * 60 * 60; // must match class-tokens.php REFRESH_TOKEN_TTL
 const REFRESH_SKEW_SECONDS = 5 * 60; // refresh a bit before actual expiry, not exactly at it
 
 function decodeJwtExpiry(token: string): number | null {
@@ -59,45 +63,34 @@ export async function proxy(request: NextRequest) {
       cache: "no-store",
     });
 
-    const secure = process.env.NODE_ENV === "production";
-
     if (!res.ok) {
       // Refresh token itself is invalid/expired/revoked — clear the dead
       // session rather than looping through this refresh attempt on every
       // request until the cookie's own maxAge finally expires. Explicit
-      // matching attributes, not .delete() — see lib/session.ts for why.
-      const expired = { path: "/", maxAge: 0, secure, sameSite: "lax" as const };
-      response.cookies.set(ACCESS_TOKEN_COOKIE, "", { ...expired, httpOnly: true });
-      response.cookies.set(REFRESH_TOKEN_COOKIE, "", { ...expired, httpOnly: true });
-      response.cookies.set(USER_COOKIE, "", { ...expired, httpOnly: false });
+      // matching attributes, not .delete() — see session-cookies.ts for why.
+      response.cookies.set(ACCESS_TOKEN_COOKIE, "", expiredCookieOptions(true));
+      response.cookies.set(REFRESH_TOKEN_COOKIE, "", expiredCookieOptions(true));
+      response.cookies.set(USER_COOKIE, "", expiredCookieOptions(false));
       return response;
     }
 
     const tokens = await res.json();
 
-    response.cookies.set(ACCESS_TOKEN_COOKIE, tokens.access_token, {
-      httpOnly: true,
-      secure,
-      sameSite: "lax",
-      path: "/",
-      maxAge: tokens.expires_in,
-    });
-    response.cookies.set(REFRESH_TOKEN_COOKIE, tokens.refresh_token, {
-      httpOnly: true,
-      secure,
-      sameSite: "lax",
-      path: "/",
-      maxAge: REFRESH_TOKEN_MAX_AGE,
-    });
+    response.cookies.set(
+      ACCESS_TOKEN_COOKIE,
+      tokens.access_token,
+      accessTokenCookieOptions(tokens.expires_in),
+    );
+    response.cookies.set(REFRESH_TOKEN_COOKIE, tokens.refresh_token, refreshTokenCookieOptions());
     response.cookies.set(
       USER_COOKIE,
-      // Don't pre-encode — see lib/session.ts for why (Next encodes for us).
+      // Don't pre-encode — see session-cookies.ts for why (Next encodes for us).
       JSON.stringify({
         id: tokens.user.id,
         name: tokens.user.name,
         mentionName: tokens.user.mention_name,
       }),
-      { httpOnly: false, secure, sameSite: "lax", path: "/", maxAge: REFRESH_TOKEN_MAX_AGE },
+      userCookieOptions(),
     );
   } catch {
     // WP unreachable — leave cookies as-is rather than logging the user

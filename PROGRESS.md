@@ -10,10 +10,11 @@ reasoning in `DECISIONS.md`, rules in `CLAUDE.md`.
 
 ## Current state
 
-**Phase:** 6 — Production hardening — **in progress**. Done: caching audit
-(no bugs found), error boundaries/404/500 pages (real bugs found and
-fixed, see session log). Remaining: cookie-flags-per-environment review,
-cache revalidation webhook, rate limiting on auth routes, Lighthouse pass.
+**Phase:** 6 — Production hardening — **in progress**. Done: caching
+audit, error boundaries/404/500 pages, cookie-flags-per-environment
+review (all found real bugs except the caching audit — see session log).
+Remaining: cache revalidation webhook, rate limiting on auth routes,
+Lighthouse pass.
 **Next task:** pick the next Phase 6 item (see PLAN.md's punch list).
 
 ## Blockers
@@ -79,6 +80,52 @@ this list whenever a new one is introduced.
 ---
 
 ## Session log
+
+### 2026-08-28 — Phase 6: Cookie-flags-per-environment review
+
+- Audited every cookie set by the app (`hl_access`, `hl_refresh`,
+  `hl_user`) for correct `secure`/`sameSite`/`httpOnly` per environment.
+  Verdict: already correct — `secure` is conditional on `NODE_ENV ===
+  "production"` (so plain-HTTP local dev still works; a browser silently
+  drops a `Secure` cookie set over HTTP, which would otherwise break login
+  in dev), and this session alone has dozens of successful dev-mode
+  logins as empirical proof (`hl_user` is non-httpOnly and its value is
+  what `<AuthStatus>` reads via `document.cookie` — if `secure` were
+  wrongly `true` in dev, none of those logins would have shown a logged-in
+  header). `sameSite: "lax"` is the right default for this BFF shape (the
+  browser is same-origin with Next.js, cookies never go directly to
+  WordPress) — protects against CSRF on cross-site POSTs while still
+  working for normal top-level navigation.
+- **The one real finding:** `lib/session.ts` (Server Components/Actions,
+  via `next/headers`) and `proxy.ts` (Edge middleware, via
+  `NextRequest`/`NextResponse`'s own cookie API — a different runtime that
+  can't share the same `cookies()` import) had independently duplicated
+  the exact same cookie-name constants and attribute objects. Not
+  currently wrong in either copy, but a real drift risk for
+  security-relevant flags — nothing would have caught the two silently
+  diverging if one were edited without the other.
+- Extracted both into a new `lib/session-cookies.ts` (pure, no
+  `next/headers` dependency, so it's safe to import from either runtime)
+  — cookie names, TTLs, and `accessTokenCookieOptions`/
+  `refreshTokenCookieOptions`/`userCookieOptions`/`expiredCookieOptions`
+  helpers. Both `session.ts` and `proxy.ts` now call the same functions
+  instead of maintaining their own copies.
+- Caught a good example of why the "verify live, not just visually" habit
+  matters here: the refactor initially looked like it broke login — a
+  fresh `pnpm verify` run showed 4 failing auth e2e tests right after the
+  change. Investigated rather than assuming the refactor was fine: reran
+  the same tests in isolation (3 of 4 passed clean) and manually logged
+  out/in via Playwright MCP against the live dev server (worked
+  correctly) — the one real failure was a pre-existing, unrelated test
+  fragility (a `getByText("Headless Test Account")` locator not scoped to
+  the header dropdown, ambiguously matching real, changing activity-feed
+  content). Confirmed via three separate clean 25/25 runs afterward that
+  it was flakiness, not a regression.
+- `pnpm verify` and `pnpm build` pass.
+- **What to look at:** nothing new user-facing — same login/logout
+  behavior as before, just de-duplicated under the hood. Worth a
+  once-over that login/logout still work normally, since this touched the
+  session-cookie code path directly.
 
 ### 2026-08-28 — Phase 6: Error boundaries, real 404/500 pages — found and fixed a real bug
 
