@@ -12,10 +12,10 @@ reasoning in `DECISIONS.md`, rules in `CLAUDE.md`.
 
 **Phase:** 6 — Production hardening — **in progress**. Done: caching
 audit, error boundaries/404/500 pages, cookie-flags-per-environment
-review, Lighthouse pass (all found real bugs except the caching audit —
-see session log). Remaining: cache revalidation webhook, rate limiting on
-auth routes.
-**Next task:** pick the next Phase 6 item (see PLAN.md's punch list).
+review, Lighthouse pass, rate limiting on login. Remaining: cache
+revalidation webhook.
+**Next task:** cache revalidation webhook (WordPress → Next.js on
+`save_post`) — the last Phase 6 item (see PLAN.md).
 
 ## Blockers
 
@@ -80,6 +80,38 @@ this list whenever a new one is introduced.
 ---
 
 ## Session log
+
+### 2026-08-28 — Phase 6: Rate limiting on the login route
+
+- New `apps/web/lib/rate-limit.ts` — in-memory, per-instance rate
+  limiting (chosen over an external store like Upstash/Vercel KV for now;
+  see DECISIONS.md for the tradeoff). Per-IP (not per-username, since a
+  brute-force attempt guesses many usernames from one source): after 5
+  failed attempts, further attempts from that IP are blocked for 10
+  minutes, checked *before* calling WordPress at all so a blocked request
+  never even reaches it. A successful login clears the count for that IP.
+  5 unit tests (`rate-limit.test.ts`) covering under/at threshold,
+  clearing on success, independent keys, and window expiry (via
+  `vi.useFakeTimers`).
+- Wired into `loginAction` (`auth-actions.ts`) only — not the token
+  refresh flow in `proxy.ts`. Refresh tokens are long random secrets bound
+  to an existing session cookie, not guessable via credential brute-force
+  the way a login password is, so rate limiting it doesn't address the
+  same threat and was out of scope for this pass.
+- Verified live: 5 wrong-password submissions via Playwright MCP each
+  showed the normal generic "Incorrect username or password." error and
+  counted toward the limit; the 6th attempt — using the *correct*
+  password — was still blocked with "Too many attempts. Try again in 9
+  minutes.", confirming the check runs before any call to WordPress. This
+  temporarily locked out real login for `headless-test` on the dev
+  server for ~10 minutes (expected — it's an in-memory bucket, clears on
+  its own; didn't restart the dev server to avoid disrupting other state).
+- `pnpm verify` and `pnpm build` pass; `/login` stays statically rendered
+  in the build output (the rate limiter only runs inside the Server
+  Action, not during page render).
+- **What to look at:** nothing new to look at visually under normal use —
+  only surfaces after 5 wrong-password attempts in a row from the same
+  IP within 10 minutes, which normal usage won't hit.
 
 ### 2026-08-28 — Phase 6: Lighthouse pass — found and fixed two real bugs
 

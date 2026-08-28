@@ -23,6 +23,29 @@ Format:
 
 ---
 
+## 2026-08-28 — Login rate limiting: in-memory, per-IP, not an external store
+
+**Decision:** `lib/rate-limit.ts` keeps failed-login counts in a plain
+in-process `Map`, keyed by client IP (from `x-forwarded-for`), 5 failures
+→ blocked for 10 minutes. No Upstash/Vercel KV or other external store.
+**Why:** asked the user directly rather than assuming — this is a
+low-traffic dev/practice site, not a production service under real
+attack pressure, and an external store means a new account, a new env
+var (added to `.env.local` *and* the Vercel dashboard per this project's
+own convention), and a new runtime dependency, none of which are free.
+The user chose in-memory to start. It's a real, working deterrent against
+naive brute-forcing today, with a known, accepted limitation: Vercel
+serverless functions don't share memory across concurrent instances or
+survive a redeploy, so under real multi-instance traffic an attacker
+could get more than 5 attempts by landing on different warm instances,
+and every deploy resets everyone's count to zero.
+**Alternatives:** Upstash Redis via the Vercel Marketplace — the correct
+answer if this ever needs to hold up against real traffic or a genuine
+attacker; deliberately not built now. Revisit if this site gets exposed
+more widely or actually sees abuse — swapping the store is contained
+entirely inside `rate-limit.ts`'s three functions, nothing in
+`auth-actions.ts` would need to change.
+
 ## 2026-08-28 — `timeAgo()` in client components needs `suppressHydrationWarning`
 
 **Decision:** Every JSX element that renders `timeAgo(...)`'s output

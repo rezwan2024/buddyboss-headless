@@ -1,5 +1,6 @@
 "use server";
 
+import { checkRateLimit, getClientIp, recordFailure, recordSuccess } from "@/lib/rate-limit";
 import { REFRESH_TOKEN_COOKIE, clearSessionCookies, setSessionCookies } from "@/lib/session";
 import { login as apiLogin, revokeToken } from "@buddyboss-headless/api-client";
 import { cookies } from "next/headers";
@@ -17,15 +18,30 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
     return { error: "Enter a username and password." };
   }
 
+  // Per-IP, not per-username — a brute-force attempt guesses many
+  // usernames from one source, and limiting per-username alone wouldn't
+  // slow that down. Checked before attempting auth so a limited request
+  // never even reaches WordPress.
+  const ip = await getClientIp();
+  const rateLimit = checkRateLimit(ip);
+  if (rateLimit.limited) {
+    const minutes = Math.ceil(rateLimit.retryAfterSeconds / 60);
+    return {
+      error: `Too many attempts. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`,
+    };
+  }
+
   let tokens: Awaited<ReturnType<typeof apiLogin>>;
   try {
     tokens = await apiLogin(username, password);
   } catch {
+    recordFailure(ip);
     // Deliberately generic — matches the WP plugin's own generic error, so
     // failed logins never confirm whether a username exists.
     return { error: "Incorrect username or password." };
   }
 
+  recordSuccess(ip);
   await setSessionCookies(tokens);
   redirect("/");
 }
