@@ -12,7 +12,7 @@ export default function ForumCard({ forum }: { forum: Forum }) {
         <p className="text-sm font-medium text-black/80 dark:text-white/80">
           {decodeEntities(forum.title.rendered)}
         </p>
-        <p className="mt-1 text-xs text-black/40 dark:text-white/40">
+        <p className="mt-1 text-xs text-black/60 dark:text-white/60">
           {forum.total_topic_count} topic{forum.total_topic_count === 1 ? "" : "s"} ·{" "}
           {forum.total_reply_count} repl{forum.total_reply_count === 1 ? "y" : "ies"}
         </p>

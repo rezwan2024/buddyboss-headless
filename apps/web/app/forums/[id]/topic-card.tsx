@@ -21,7 +21,7 @@ export default function TopicCard({
           <p className="truncate text-sm font-medium text-black/80 dark:text-white/80">
             {decodeEntities(topic.title.rendered)}
           </p>
-          <p className="truncate text-xs text-black/40 dark:text-white/40">
+          <p className="truncate text-xs text-black/60 dark:text-white/60">
             {decodeEntities(topic.author_name)} · {timeAgo(topic.date)} · {topic.total_reply_count}{" "}
             repl{topic.total_reply_count === 1 ? "y" : "ies"}
           </p>

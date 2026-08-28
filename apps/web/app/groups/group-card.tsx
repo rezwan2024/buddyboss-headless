@@ -21,7 +21,7 @@ export default function GroupCard({ group }: { group: Group }) {
           <p className="truncate text-sm font-medium text-black/80 dark:text-white/80">
             {decodeEntities(group.name)}
           </p>
-          <p className="truncate text-xs text-black/40 dark:text-white/40">
+          <p className="truncate text-xs text-black/60 dark:text-white/60">
             {group.members_count} member{group.members_count === 1 ? "" : "s"}
           </p>
         </div>

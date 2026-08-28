@@ -127,7 +127,13 @@ function ActivityItem({ activity, isLoggedIn }: { activity: Activity; isLoggedIn
         <div className="min-w-0 flex-1">
           <p className="text-sm text-black/70 dark:text-white/70">
             {decodeEntities(activity.name)}{" "}
-            <span className="text-black/40 dark:text-white/40">· {timeAgo(activity.date)}</span>
+            {/* timeAgo() reads Date.now() — the server-rendered and hydration-time
+                strings can legitimately differ by a few seconds, which is a pure
+                text-content mismatch React expects to be told about explicitly
+                (see https://react.dev/reference/react-dom/client/hydrateRoot#handling-different-client-and-server-content) */}
+            <span className="text-black/60 dark:text-white/60" suppressHydrationWarning>
+              · {timeAgo(activity.date)}
+            </span>
           </p>
           {activity.content.rendered && (
             <div
@@ -187,9 +193,9 @@ function ActivityItem({ activity, isLoggedIn }: { activity: Activity; isLoggedIn
                   href={doc.download_url}
                   className="flex items-center gap-2 rounded border border-black/10 px-2 py-1.5 text-xs hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10"
                 >
-                  <DocumentIcon className="h-4 w-4 shrink-0 text-black/40 dark:text-white/40" />
+                  <DocumentIcon className="h-4 w-4 shrink-0 text-black/60 dark:text-white/60" />
                   <span className="truncate">{doc.filename || "Document"}</span>
-                  <span className="ml-auto shrink-0 text-black/40 dark:text-white/40">
+                  <span className="ml-auto shrink-0 text-black/60 dark:text-white/60">
                     {doc.size}
                   </span>
                 </a>
@@ -210,7 +216,7 @@ function ActivityItem({ activity, isLoggedIn }: { activity: Activity; isLoggedIn
               />
             </div>
           )}
-          <div className="mt-1 flex items-center gap-1 text-xs text-black/40 dark:text-white/40">
+          <div className="mt-1 flex items-center gap-1 text-xs text-black/60 dark:text-white/60">
             <button
               type="button"
               onClick={() => setCommentsOpen((open) => !open)}

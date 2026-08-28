@@ -23,6 +23,41 @@ Format:
 
 ---
 
+## 2026-08-28 — `timeAgo()` in client components needs `suppressHydrationWarning`
+
+**Decision:** Every JSX element that renders `timeAgo(...)`'s output
+inside a `"use client"` component (`activity-feed-list.tsx`,
+`activity-comments.tsx`, `messages/threads-list.tsx`,
+`messages/[id]/messages-thread.tsx`, `notifications/notifications-list.tsx`)
+gets `suppressHydrationWarning` on the element wrapping just that text —
+not the whole component, not a blanket app-wide setting.
+**Why:** `timeAgo()` defaults its `now` param to `Date.now()`, called
+fresh on every render. These components render once during SSR (server
+wall-clock) and again during hydration (browser wall-clock, measurably
+later — worse under throttling), so the two calls can produce different
+strings ("9h ago" vs "10h ago") for the exact same underlying timestamp.
+React treats this as a real hydration error in production builds
+(`Minified React error #418`) — confirmed live on `buddyboss.vercel.app/`
+via Lighthouse's console-errors audit and reproduced directly via
+Playwright, on every single homepage load. This had never surfaced before
+because every session this project has ever tested exclusively used `next
+dev` (which prints full, non-minified errors and, per repeated
+observation, doesn't appear to trigger this particular mismatch as
+visibly) — the bug was real and constant in production the whole time,
+just never looked at production's own console before this Lighthouse
+pass.
+**Alternatives:** thread a single server-captured "now" timestamp down as
+a prop so both the SSR pass and the client's first render use the
+identical value — more "correct" in the sense of matching exactly, but
+adds a prop to every affected component and every list item just to solve
+a cosmetic one-render discrepancy. `suppressHydrationWarning` is React's
+own documented recommendation for precisely this case (a value expected
+to legitimately differ between server and client, like a clock) — see
+https://react.dev/reference/react-dom/client/hydrateRoot#handling-different-client-and-server-content.
+Scoped to the single text-bearing element in each case, not the whole
+component, so it can't silently hide an unrelated future mismatch in the
+same component.
+
 ## 2026-08-28 — Single-item endpoints genuinely 404; `notFound()` checks were dead code
 
 **Decision:** New `apps/web/lib/fetch-or-not-found.ts` (`fetchOrNotFound`)

@@ -21,7 +21,7 @@ export default function MemberCard({ member }: { member: Member }) {
           <p className="truncate text-sm font-medium text-black/80 dark:text-white/80">
             {decodeEntities(member.name)}
           </p>
-          <p className="truncate text-xs text-black/40 dark:text-white/40">
+          <p className="truncate text-xs text-black/60 dark:text-white/60">
             {member.last_activity
               ? `Active ${timeAgo(member.last_activity)}`
               : `@${member.user_login}`}

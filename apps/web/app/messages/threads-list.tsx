@@ -39,7 +39,11 @@ function ThreadCard({ thread, currentUserId }: { thread: Thread; currentUserId: 
           </p>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
-          <span className="text-xs text-black/40 dark:text-white/40">{timeAgo(thread.date)}</span>
+          {/* suppressHydrationWarning: timeAgo() reads Date.now() — see
+              activity-feed-list.tsx for the full reasoning. */}
+          <span className="text-xs text-black/60 dark:text-white/60" suppressHydrationWarning>
+            {timeAgo(thread.date)}
+          </span>
           {unread && <span className="h-2 w-2 rounded-full bg-blue-600 dark:bg-blue-400" />}
         </div>
       </Link>

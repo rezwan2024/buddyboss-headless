@@ -28,7 +28,7 @@ export default function PostCard({ post }: { post: Post }) {
           <p className="text-sm font-medium text-black/80 dark:text-white/80">
             {decodeEntities(post.title.rendered)}
           </p>
-          <p className="mt-1 text-xs text-black/40 dark:text-white/40">
+          <p className="mt-1 text-xs text-black/60 dark:text-white/60">
             {decodeEntities(postAuthorName(post))} · {timeAgo(post.date)}
           </p>
         </div>

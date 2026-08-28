@@ -39,7 +39,9 @@ function NotificationCard({ notification }: { notification: Notification }) {
       <AuthorAvatar src={notification.avatar_urls.thumb} size={36} />
       <div className="min-w-0 flex-1">
         <p className="text-sm">{stripTags(notification.description.rendered)}</p>
-        <p className="mt-0.5 text-xs text-black/40 dark:text-white/40">
+        {/* suppressHydrationWarning: timeAgo() reads Date.now() — see
+            activity-feed-list.tsx for the full reasoning. */}
+        <p className="mt-0.5 text-xs text-black/60 dark:text-white/60" suppressHydrationWarning>
           {timeAgo(notification.date)}
         </p>
         {error && <p className="mt-1 text-xs text-red-700 dark:text-red-400">{error}</p>}

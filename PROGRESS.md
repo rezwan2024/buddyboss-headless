@@ -12,9 +12,9 @@ reasoning in `DECISIONS.md`, rules in `CLAUDE.md`.
 
 **Phase:** 6 — Production hardening — **in progress**. Done: caching
 audit, error boundaries/404/500 pages, cookie-flags-per-environment
-review (all found real bugs except the caching audit — see session log).
-Remaining: cache revalidation webhook, rate limiting on auth routes,
-Lighthouse pass.
+review, Lighthouse pass (all found real bugs except the caching audit —
+see session log). Remaining: cache revalidation webhook, rate limiting on
+auth routes.
 **Next task:** pick the next Phase 6 item (see PLAN.md's punch list).
 
 ## Blockers
@@ -80,6 +80,66 @@ this list whenever a new one is introduced.
 ---
 
 ## Session log
+
+### 2026-08-28 — Phase 6: Lighthouse pass — found and fixed two real bugs
+
+- Ran Lighthouse (via `npx lighthouse`, headless Chrome) against every
+  main page — `/`, `/members`, `/groups`, `/forums`, `/blog`, `/login` —
+  on both the deployed production URL and a local `next start` build.
+  Baseline on `/`: performance 95, accessibility 96, best-practices 96,
+  seo 100.
+- **Real bug #1 — hydration mismatch on every homepage load in
+  production:** Lighthouse's console-errors audit caught `Minified React
+  error #418` (a hydration mismatch) firing on `buddyboss.vercel.app/`
+  every single load — confirmed live via Playwright against production,
+  reproducible every time. Root cause: five client components
+  (`activity-feed-list.tsx`, `activity-comments.tsx`,
+  `messages/threads-list.tsx`, `messages/[id]/messages-thread.tsx`,
+  `notifications/notifications-list.tsx`) call `timeAgo()`, which defaults
+  to `Date.now()`, directly in their render output. Since these components
+  render once during SSR (at request time, on the server) and again during
+  hydration (at script-execution time, in the browser — measurably later,
+  especially under network/CPU throttling), the two `Date.now()` calls can
+  legitimately produce different relative-time strings, which React
+  reports as a hard hydration error in production (dev mode never showed
+  this — it only prints minified digests in prod builds, and this
+  session's testing had been exclusively against `next dev` all along, so
+  this had been silently happening on every real production page load
+  without ever surfacing). Fixed by isolating each `timeAgo()` call in its
+  own element with `suppressHydrationWarning` — React's own documented
+  pattern for exactly this "value is expected to legitimately differ
+  between server and client" case (a clock/timestamp).
+- **Real bug #2 — systemic WCAG AA contrast failure in both themes:** the
+  `text-black/40 dark:text-white/40` utility pair (used for every
+  timestamp, comment/like button, and card meta line — 15 occurrences
+  across the app) computes to a 3.77:1 contrast ratio in dark mode against
+  this app's near-black background, below the required 4.5:1 for normal
+  text. Computed the fix precisely (not by guessing): dark mode needs
+  ≥0.45 opacity, light mode actually needs *more* (≥0.55) to hit the same
+  ratio against a white background at the same nominal opacity value —
+  bumped every non-placeholder occurrence to `/60`, which clears 4.5:1
+  with comfortable margin in both themes (6.26:1 dark, 4.76:1 light) and
+  matches an opacity step already used elsewhere in the app for secondary
+  text. Placeholder text (`placeholder:text-black/40`, 7 occurrences)
+  deliberately left alone — Lighthouse's contrast audit doesn't flag
+  placeholders, and CLAUDE.md's own convention treats them as visually
+  lighter by design.
+- Verified both fixes together: re-ran Lighthouse against the fixed local
+  production build — accessibility 96→100, best-practices 96→100, zero
+  console errors, contrast audit passes with zero violations. All five
+  other main pages (already on the fixed build) scored 100/100/100 on
+  accessibility/best-practices/seo; `/blog`'s 90 performance score is
+  generic Next.js bundle/LCP overhead (legacy JS shims, render-blocking
+  font/CSS), not a specific bug — still Lighthouse's "good" band, left
+  as-is for this pass.
+- `pnpm verify` and `pnpm build` pass; re-verified login/logout still work
+  correctly on both localhost and production after the change (touched
+  render output only, not session logic, but worth confirming given how
+  close this sat to the cookie-flags work from earlier in this session).
+- **What to look at:** nothing visually different except slightly darker
+  timestamp/meta text — the real fix here is invisible (no more console
+  error on page load). Worth opening devtools on `buddyboss.vercel.app/`
+  once to confirm the console is clean.
 
 ### 2026-08-28 — Phase 6: Cookie-flags-per-environment review
 

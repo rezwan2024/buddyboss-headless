@@ -25,7 +25,12 @@ function CommentThread({ comments }: { comments: Activity[] }) {
           <div className="min-w-0 flex-1">
             <p className="text-sm text-black/70 dark:text-white/70">
               {decodeEntities(comment.name)}{" "}
-              <span className="text-black/40 dark:text-white/40">· {timeAgo(comment.date)}</span>
+              {/* suppressHydrationWarning: timeAgo() reads Date.now(), which can
+                  legitimately differ between the server-rendered and hydration-time
+                  string — see activity-feed-list.tsx for the full reasoning. */}
+              <span className="text-black/60 dark:text-white/60" suppressHydrationWarning>
+                · {timeAgo(comment.date)}
+              </span>
             </p>
             {comment.content.rendered && (
               <div

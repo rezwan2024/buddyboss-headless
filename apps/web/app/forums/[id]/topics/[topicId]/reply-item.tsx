@@ -12,7 +12,7 @@ export default function ReplyItem({ reply }: { reply: ReplyWithAuthor }) {
       <div className="min-w-0 flex-1">
         <p className="text-sm text-black/70 dark:text-white/70">
           {decodeEntities(reply.author_name)}{" "}
-          <span className="text-black/40 dark:text-white/40">· {timeAgo(reply.date)}</span>
+          <span className="text-black/60 dark:text-white/60">· {timeAgo(reply.date)}</span>
         </p>
         {reply.content.rendered && (
           <div

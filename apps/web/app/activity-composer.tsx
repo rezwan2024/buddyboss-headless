@@ -69,7 +69,7 @@ export default function ActivityComposer() {
               aria-disabled={activeKind !== null && activeKind !== kind}
             >
               {label}
-              {activeKind === kind && <span className="text-black/40 dark:text-white/40">(1)</span>}
+              {activeKind === kind && <span className="text-black/60 dark:text-white/60">(1)</span>}
               <input
                 type="file"
                 name={kind}
