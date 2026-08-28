@@ -1,3 +1,4 @@
+import { fetchOrNotFound } from "@/lib/fetch-or-not-found";
 import { decodeEntities } from "@/lib/format";
 import { getAccessToken } from "@/lib/session";
 import { getMember } from "@buddyboss-headless/api-client";
@@ -26,8 +27,9 @@ export default async function NewThreadPage({ searchParams }: PageProps<"/messag
     );
   }
 
-  const recipient = await getMember(recipientId);
-  if (!recipient.id) notFound();
+  // A nonexistent member id genuinely 404s (confirmed live) — see
+  // fetchOrNotFound's doc comment.
+  const recipient = await fetchOrNotFound(() => getMember(recipientId));
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-8">

@@ -1,3 +1,4 @@
+import { fetchOrNotFound } from "@/lib/fetch-or-not-found";
 import { decodeEntities, timeAgo } from "@/lib/format";
 import { getAccessToken, getSessionUser } from "@/lib/session";
 import { getMember } from "@buddyboss-headless/api-client";
@@ -15,10 +16,9 @@ export default async function MemberProfilePage({ params }: PageProps<"/members/
   // see getMember's doc comment.
   const accessToken = await getAccessToken();
   const sessionUser = await getSessionUser();
-  const member = await getMember(memberId, accessToken ?? undefined);
-  // The API returns an empty id (coerced to 0 by the schema) for an
-  // unknown/invalid member instead of a 404 status — check content, not status.
-  if (!member.id) notFound();
+  // A nonexistent member id genuinely 404s (confirmed live) — see
+  // fetchOrNotFound's doc comment.
+  const member = await fetchOrNotFound(() => getMember(memberId, accessToken ?? undefined));
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-8">

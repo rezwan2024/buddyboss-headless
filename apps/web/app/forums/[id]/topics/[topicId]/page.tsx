@@ -1,3 +1,4 @@
+import { fetchOrNotFound } from "@/lib/fetch-or-not-found";
 import { decodeEntities, timeAgo } from "@/lib/format";
 import { getAccessToken } from "@/lib/session";
 import { getRepliesWithAuthors, getTopicWithAuthor } from "@buddyboss-headless/api-client";
@@ -15,10 +16,9 @@ export default async function TopicDetailPage({
   const topicId = Number(topicIdParam);
   if (!Number.isInteger(topicId) || topicId <= 0) notFound();
 
-  const topic = await getTopicWithAuthor(topicId);
-  // BuddyBoss returns 200 with an empty/error body for an unknown topic
-  // rather than a 404 status — check content, not status.
-  if (!topic.id) notFound();
+  // A nonexistent topic id genuinely 404s (confirmed live) — see
+  // fetchOrNotFound's doc comment.
+  const topic = await fetchOrNotFound(() => getTopicWithAuthor(topicId));
 
   // Uncached when logged in, so a fresh page load right after replying
   // doesn't show stale, pre-reply data — see PageParams.accessToken.

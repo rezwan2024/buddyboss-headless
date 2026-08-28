@@ -23,6 +23,33 @@ Format:
 
 ---
 
+## 2026-08-28 — Single-item endpoints genuinely 404; `notFound()` checks were dead code
+
+**Decision:** New `apps/web/lib/fetch-or-not-found.ts` (`fetchOrNotFound`)
+wraps every detail page's single-item fetch and calls Next's `notFound()`
+when the resulting `WpApiError`'s status is 404 (or, for message threads,
+403 too). Applied to `members/[id]`, `groups/[id]`, `forums/[id]`,
+`forums/[id]/topics/[topicId]`, `messages/[id]`, and `messages/new`.
+**Why:** several of these pages carried a comment claiming "BuddyBoss
+returns 200 with an empty/error body for an unknown X rather than a 404
+status — check content, not status," and a matching `if (!thing.id)
+notFound()` check below the fetch. Checked live via curl, not assumed:
+`GET /members/{id}`, `/groups/{id}`, `/forums/{id}`, `/topics/{id}` all
+genuinely return HTTP 404 for a nonexistent id; `GET /messages/{id}`
+returns 403 for a thread you're not a participant in. `wpFetchJson` throws
+a `WpApiError` on any non-2xx status *before* the schema-parsed body
+(and its `!thing.id` check) is ever produced — so that `notFound()` call
+was unreachable in exactly the case it was written for. The 200-with-
+empty-body pattern this assumed is real elsewhere (`wp/v2/posts?slug=`,
+which is what `blog/[slug]` correctly relies on — a *list* endpoint
+filtered by slug, not a single-item lookup), but was never actually true
+for these single-item routes; the assumption looks like it was carried
+over from that pattern without being re-checked per endpoint.
+**Alternatives:** none — this is what the API actually does; the fix is
+purely about catching the error Next's own 404 machinery is designed for,
+instead of letting it fall through to a generic `error.tsx` with a "Try
+again" button that can never fix a resource that doesn't exist.
+
 ## 2026-08-28 — Caching audit: two latent per-user fields left un-gated on purpose
 
 **Decision:** Not changing `getGroups()` (the `/groups` directory) or

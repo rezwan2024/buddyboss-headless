@@ -10,10 +10,10 @@ reasoning in `DECISIONS.md`, rules in `CLAUDE.md`.
 
 ## Current state
 
-**Phase:** 6 — Production hardening — **in progress**. Caching audit done
-(no bugs found, see session log). Remaining: error boundaries/404/500
-pages, cookie-flags-per-environment review, cache revalidation webhook,
-rate limiting on auth routes, Lighthouse pass.
+**Phase:** 6 — Production hardening — **in progress**. Done: caching audit
+(no bugs found), error boundaries/404/500 pages (real bugs found and
+fixed, see session log). Remaining: cookie-flags-per-environment review,
+cache revalidation webhook, rate limiting on auth routes, Lighthouse pass.
 **Next task:** pick the next Phase 6 item (see PLAN.md's punch list).
 
 ## Blockers
@@ -79,6 +79,49 @@ this list whenever a new one is introduced.
 ---
 
 ## Session log
+
+### 2026-08-28 — Phase 6: Error boundaries, real 404/500 pages — found and fixed a real bug
+
+- Added `app/not-found.tsx` (branded, renders inside the root layout —
+  header/footer still show) and `app/global-error.tsx` (catches an error
+  thrown by the root layout itself, the one place a normal `error.tsx`
+  can't reach — renders its own minimal `<html>/<body>`, no dependency on
+  anything that could itself be broken). Filled in the four route
+  segments that got skipped when they were built (`messages/`,
+  `messages/[id]/`, `messages/new/`, `notifications/` all had no
+  `error.tsx`/`loading.tsx` of their own, silently falling through to the
+  root's, whose copy says "Couldn't load the activity feed" regardless of
+  which page actually failed).
+- **Real bug found while doing this, not assumed:** every detail page's
+  `if (!thing.id) notFound()` check (members, groups, forums, topics,
+  message threads, the new-message compose page) was **dead code**.
+  Checked live via curl: `GET /members/{id}`, `/groups/{id}`,
+  `/forums/{id}`, `/topics/{id}` all genuinely 404 for a nonexistent id
+  (not the 200-with-empty-body pattern several of these pages' own
+  comments assumed — true for the blog's `wp/v2/posts?slug=`, never
+  actually confirmed for these), and `GET /messages/{id}` 403s for a
+  thread you're not a participant in. Either way, `wpFetchJson` throws a
+  `WpApiError` before the schema-checked `!thing.id` branch is ever
+  reached — so a genuinely-missing member/group/forum/topic/thread was
+  always hitting the route's generic `error.tsx` ("Couldn't load this
+  member", a "Try again" button that would never help) instead of a real
+  404 page.
+- Fixed with a new shared `apps/web/lib/fetch-or-not-found.ts`
+  (`fetchOrNotFound`) — wraps the single-item fetch, calls `notFound()`
+  when the thrown `WpApiError`'s status matches (404 by default; messages
+  passes `[403, 404]` since an inaccessible thread should look identical
+  to a nonexistent one to the viewer, not leak which case it is). Applied
+  at all six call sites; corrected each page's now-inaccurate comment.
+- Verified live via Playwright MCP: `/members/999999`, `/groups/999999`,
+  and `/messages/999999` all now render the real branded not-found page
+  (confirmed via snapshot, not just visually) instead of the generic error
+  boundary; an actually-unmatched route (`/this-route-does-not-exist`)
+  renders the same page with a real 404 HTTP status.
+- `pnpm verify` and `pnpm build` pass; `/_not-found` shows as a real
+  prerendered route in the build output.
+- **What to look at:** visit any detail page with a made-up id (e.g.
+  `/members/999999`) — should show a branded "Page not found", not a red
+  "Couldn't load..." error box.
 
 ### 2026-08-28 — Phase 6: Caching audit — no bugs found
 

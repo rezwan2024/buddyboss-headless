@@ -1,3 +1,4 @@
+import { fetchOrNotFound } from "@/lib/fetch-or-not-found";
 import { decodeEntities } from "@/lib/format";
 import { getAccessToken } from "@/lib/session";
 import { getForum, getTopicsWithAuthors } from "@buddyboss-headless/api-client";
@@ -12,10 +13,9 @@ export default async function ForumDetailPage({ params }: PageProps<"/forums/[id
   const forumId = Number(id);
   if (!Number.isInteger(forumId) || forumId <= 0) notFound();
 
-  const forum = await getForum(forumId);
-  // BuddyBoss returns 200 with an empty/error body for an unknown forum
-  // rather than a 404 status — check content, not status.
-  if (!forum.id) notFound();
+  // A nonexistent forum id genuinely 404s (confirmed live) — see
+  // fetchOrNotFound's doc comment.
+  const forum = await fetchOrNotFound(() => getForum(forumId));
 
   // Uncached when logged in, so a fresh page load right after posting a
   // topic doesn't show stale, pre-post data — see PageParams.accessToken.

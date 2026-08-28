@@ -1,3 +1,4 @@
+import { fetchOrNotFound } from "@/lib/fetch-or-not-found";
 import { decodeEntities } from "@/lib/format";
 import { getAccessToken, getSessionUser } from "@/lib/session";
 import { getThread, markThreadRead } from "@buddyboss-headless/api-client";
@@ -27,10 +28,12 @@ export default async function ThreadPage({ params }: PageProps<"/messages/[id]">
     );
   }
 
-  const thread = await getThread(threadId, accessToken);
-  // BuddyBoss returns 200 with an empty/error body for an unknown or
-  // inaccessible thread rather than a 404 status — check content, not status.
-  if (!thread.id) notFound();
+  // An unknown thread id 404s; one you're not a participant in 403s
+  // (confirmed live) — both should look like "not found" to the viewer,
+  // not a raw error, and not distinguishable from each other (don't leak
+  // whether a thread id exists to someone who can't access it). See
+  // fetchOrNotFound's doc comment.
+  const thread = await fetchOrNotFound(() => getThread(threadId, accessToken), [403, 404]);
 
   // GET doesn't mark a thread read on its own — see markThreadRead's doc
   // comment. Best-effort: a failure here shouldn't block viewing the thread.

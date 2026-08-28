@@ -1,3 +1,4 @@
+import { fetchOrNotFound } from "@/lib/fetch-or-not-found";
 import { decodeEntities } from "@/lib/format";
 import { getAccessToken } from "@/lib/session";
 import { getGroup, getGroupMembers } from "@buddyboss-headless/api-client";
@@ -17,10 +18,9 @@ export default async function GroupDetailPage({ params }: PageProps<"/groups/[id
   // access token and can't be the anonymous, ISR-cached read other pages
   // use — see getGroup's doc comment.
   const accessToken = await getAccessToken();
-  const group = await getGroup(groupId, accessToken ?? undefined);
-  // BuddyBoss returns 200 with an empty/error body for an unknown group
-  // rather than a 404 status — check content, not status.
-  if (!group.id) notFound();
+  // A nonexistent group id genuinely 404s (confirmed live) — see
+  // fetchOrNotFound's doc comment.
+  const group = await fetchOrNotFound(() => getGroup(groupId, accessToken ?? undefined));
 
   const members = await getGroupMembers(groupId, { perPage: PER_PAGE });
 
