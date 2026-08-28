@@ -2,6 +2,7 @@ export * from "./wp-fetch";
 export * from "./activity";
 export * from "./auth";
 export * from "./forums";
+export * from "./friends";
 export * from "./groups";
 export * from "./media";
 export * from "./members";

@@ -14,10 +14,9 @@ reasoning in `DECISIONS.md`, rules in `CLAUDE.md`.
 the activity feed (text-only, or with a single photo/video/document
 attachment), commenting (top-level only — no threaded replies yet),
 favorite/like (toggle, plus the existing "who liked" popover), join/leave
-groups (public join, private request-to-join/cancel). Still open: forum
-topics/replies, friends.
-**Next task:** pick the next Phase 4 slice — forum topics/replies and
-friends are both left; neither shares much UI with what's already built.
+groups (public join, private request-to-join/cancel), friends (request,
+accept, decline, cancel, remove). Still open: forum topics/replies.
+**Next task:** forum topics/replies — the last Phase 4 slice.
 
 ## Blockers
 
@@ -81,6 +80,41 @@ this list whenever a new one is introduced.
 ---
 
 ## Session log
+
+### 2026-08-28 — Phase 4: friend request/accept/decline/cancel/remove
+
+- New `apps/web/app/members/[id]/friendship-button.tsx` on the member
+  profile page — branches on `member.friendship_status` (`not_friends` →
+  "Add friend", `pending` → "Cancel request", `awaiting_response` →
+  "Accept"/"Decline", `is_friend` → "Remove friend"). Hidden on your own
+  profile and when logged out.
+- `packages/api-client/src/friends.ts` (new): send/accept/decline-or-cancel/
+  remove, backed by `apps/web/app/friendship-action.ts`. Same non-optimistic
+  `router.refresh()`-after-resolve pattern as the group membership button.
+- `memberDetailSchema` gained `friendship_status`/`friendship_id`/
+  `create_friendship`. Checked whether `GET /members/{id}` has the same
+  single-item-vs-list divergence bug just found in the groups endpoint —
+  it doesn't (confirmed live, both return the same values for the same
+  request), so `getMember` just takes an optional `accessToken` directly,
+  no workaround needed.
+- A research pass flagged what looked like a real permission gap in
+  BuddyBoss's accept/decline endpoints (only checks login status, not
+  identity). Live-tested the accept path directly — it turned out to be
+  wrong; the underlying function does its own identity check and 404s for
+  a non-recipient. Full writeup in DECISIONS.md, including what's still
+  actually unconfirmed (decline-as-third-party) — don't assume either way
+  without a second real account to test with.
+- Verified live via Playwright MCP: sent a request (button → "Cancel
+  request"), cancelled it (button reverts to "Add friend"), confirmed no
+  button renders on your own profile. Didn't verify accept/decline in the
+  browser — needs a second real account to receive a request, which this
+  session doesn't have; verified that path via curl instead (see
+  DECISIONS.md). Worth a manual check with two real accounts when
+  convenient.
+- `pnpm verify` and `pnpm build` pass.
+- **What to look at:** any other member's profile page while logged in —
+  "Add friend" should appear and the full cycle (send → cancel, or send →
+  [someone else accepts] → "Remove friend") should work.
 
 ### 2026-08-28 — Fix: public groups showed no Join button
 

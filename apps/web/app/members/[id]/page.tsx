@@ -1,14 +1,20 @@
 import { decodeEntities, timeAgo } from "@/lib/format";
+import { getAccessToken, getSessionUser } from "@/lib/session";
 import { getMember } from "@buddyboss-headless/api-client";
 import Image from "next/image";
 import { notFound } from "next/navigation";
+import FriendshipButton from "./friendship-button";
 
 export default async function MemberProfilePage({ params }: PageProps<"/members/[id]">) {
   const { id } = await params;
   const memberId = Number(id);
   if (!Number.isInteger(memberId) || memberId <= 0) notFound();
 
-  const member = await getMember(memberId);
+  // `friendship_status`/`friendship_id`/`create_friendship` are per-user —
+  // see getMember's doc comment.
+  const accessToken = await getAccessToken();
+  const sessionUser = await getSessionUser();
+  const member = await getMember(memberId, accessToken ?? undefined);
   // The API returns an empty id (coerced to 0 by the schema) for an
   // unknown/invalid member instead of a 404 status — check content, not status.
   if (!member.id) notFound();
@@ -53,6 +59,11 @@ export default async function MemberProfilePage({ params }: PageProps<"/members/
               </div>
             )}
           </dl>
+          {accessToken && sessionUser && sessionUser.id !== member.id && (
+            <div className="mt-3">
+              <FriendshipButton member={member} />
+            </div>
+          )}
         </div>
       </div>
     </main>

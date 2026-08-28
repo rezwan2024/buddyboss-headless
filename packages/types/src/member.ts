@@ -25,6 +25,17 @@ export const memberListSchema = z.array(memberSchema);
 // add it when a screen needs it.
 export const memberDetailSchema = memberSchema.extend({
   cover_url: z.string().catch(""),
+  // Per-user friendship state between the current viewer and this member —
+  // only meaningful on an authenticated request; an anonymous read still
+  // gets these keys, just always "not_friends"/0/false. Unlike the groups
+  // single-item endpoint (see DECISIONS.md for that bug), this one was
+  // confirmed live to resolve the current user correctly, so no
+  // list-endpoint workaround is needed here.
+  friendship_status: z
+    .enum(["not_friends", "pending", "awaiting_response", "is_friend"])
+    .catch("not_friends"),
+  friendship_id: looseNumber,
+  create_friendship: looseBoolean,
 });
 
 export type MemberDetail = z.infer<typeof memberDetailSchema>;

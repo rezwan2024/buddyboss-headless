@@ -23,10 +23,19 @@ export async function getMembers(params: GetMembersParams = {}): Promise<WpList<
   });
 }
 
-/** Single member profile — `GET /buddyboss/v1/members/{id}`. Public, no auth. */
-export async function getMember(id: number): Promise<MemberDetail> {
+/**
+ * Single member profile — `GET /buddyboss/v1/members/{id}`. Public, no
+ * auth, BUT `friendship_status`/`friendship_id`/`create_friendship` are
+ * per-user — pass `accessToken` (and expect a `no-store`, uncached read)
+ * whenever the caller needs those to be accurate, e.g. to decide what a
+ * friend-request button should say. Unlike `getGroup`, this endpoint was
+ * confirmed live to resolve the current user correctly on its own — no
+ * list-endpoint workaround needed (see DECISIONS.md).
+ */
+export async function getMember(id: number, accessToken?: string): Promise<MemberDetail> {
   return wpFetchJson(`/buddyboss/v1/members/${id}`, (body) => memberDetailSchema.parse(body), {
-    next: { revalidate: 300, tags: ["members"] },
+    accessToken,
+    ...(accessToken ? { cache: "no-store" } : { next: { revalidate: 300, tags: ["members"] } }),
   });
 }
 

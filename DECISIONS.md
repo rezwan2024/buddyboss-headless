@@ -23,6 +23,36 @@ Format:
 
 ---
 
+## 2026-08-28 — Friends: no separate reject endpoint, and don't trust static analysis of BuddyBoss's permission checks
+
+**Decision:** `packages/api-client/src/friends.ts`'s `removeFriendRequest`
+is used for both "cancel a request I sent" and "decline one I received" —
+both are `DELETE /buddyboss/v1/friends/{friendship_id}`, no separate
+reject endpoint or action param. Removing an *accepted* friendship is a
+different call entirely: `DELETE /buddyboss/v1/friends?friend_id={id}`
+(the collection route, not the singular one) — confirmed live this
+returns HTTP 200 even on failure, with the real result in the body's
+`unfriend` field (`true` or an error object), so `removeFriend()` checks
+that explicitly rather than trusting `res.ok`.
+**Why it matters enough to write down:** a research pass over the PHP
+source flagged what looked like a real permission gap — `update_item()`
+(accept) and `delete_item()` (decline/withdraw) only check
+`is_user_logged_in()` at the REST permission-callback level, with no
+visible check that the caller is actually the friendship's recipient.
+Live testing directly contradicted this for accept: calling `PATCH
+/friends/{id}` as the *initiator* (not the recipient) of a real pending
+request 404s with `bp_rest_friends_cannot_update_item` — the underlying
+`friends_accept_friendship()` call does its own identity check beyond
+what the permission callback shows. Decline/withdraw's identity handling
+wasn't independently re-verified the same way (would need a second real
+account to test declining-as-a-third-party), so treat it as unconfirmed
+either way — not as a known-safe or known-broken fact — rather than
+repeating the original static-analysis claim. General lesson: a
+permission_callback reading "just checks login status" is not proof an
+action is under-protected — BuddyBoss's actual mutation functions
+routinely carry their own identity checks the REST layer doesn't surface.
+**Alternatives:** none — this is just how the API is shaped.
+
 ## 2026-08-28 — `getGroup` reads the list endpoint, not the single-item one, when authenticated
 
 **Decision:** `packages/api-client/src/groups.ts`'s `getGroup(id, accessToken)`,
