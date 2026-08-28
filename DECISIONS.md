@@ -23,6 +23,41 @@ Format:
 
 ---
 
+## 2026-08-28 — `getGroup` reads the list endpoint, not the single-item one, when authenticated
+
+**Decision:** `packages/api-client/src/groups.ts`'s `getGroup(id, accessToken)`,
+when `accessToken` is set, calls `GET /buddyboss/v1/groups?include={id}`
+(the collection endpoint, filtered to one group) instead of
+`GET /buddyboss/v1/groups/{id}` (the single-item endpoint). Anonymous reads
+still use the single-item endpoint, unchanged.
+**Why:** `GET /buddyboss/v1/groups/{id}` has a confirmed live bug — its
+`is_member`/`can_join`/`request_id` fields resolve as if the request were
+anonymous, even with a valid, working access token. This wasn't a guess or
+a caching artifact:
+- Ruled out caching: `wp cache flush` on the live site changed nothing.
+- Ruled out a broken token: the *same* token correctly toggled
+  `favorited` on `PATCH /activity/{id}/favorite` and correctly identified
+  the user via `GET /members/me` in the same test session.
+- Directly confirmed the split: for the same group and the same real
+  membership, `GET /groups/{id}` reported `is_member: false` while `GET
+  /groups?include={id}` reported `is_member: true`, in back-to-back
+  requests with the same token. The collection endpoint's `get_items()`
+  resolves the current user correctly; the single-item endpoint's
+  `get_item()` doesn't — a WordPress/BuddyBoss-side bug, not anything in
+  this codebase's auth plugin (ruled out via the favorited/`/members/me`
+  checks above, and by comparing `has_filter` output against the actual
+  live-request behavior, not a `wp eval` simulation — WP-CLI's own
+  bootstrap resolves `get_current_user_id()` to 0 *before* a `wp eval`
+  script even runs, which produced a misleading result earlier in this
+  investigation and is worth remembering: don't trust `wp eval` to
+  reproduce REST-request-time auth behavior).
+**Consequence:** this is a workaround for someone else's bug, not a fix —
+if BuddyBoss ever patches `get_item()` on this endpoint, the workaround
+becomes unnecessary but harmless (the two endpoints already return the
+same shape). No test coverage added for the specific bug itself, since
+it's external and can't be asserted against without hitting the real API;
+covered indirectly by the join/leave e2e test actually passing.
+
 ## 2026-08-28 — Private groups use a separate request endpoint, not the join endpoint
 
 **Decision:** `apps/web/app/groups/[id]/group-membership-button.tsx` branches

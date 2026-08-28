@@ -24,16 +24,32 @@ export async function getGroups(params: GetGroupsParams = {}): Promise<WpList<Gr
 }
 
 /**
- * Single group — `GET /buddyboss/v1/groups/{id}`. Public, no auth, BUT the
- * `is_member`/`can_join`/`request_id` fields are per-user — pass
- * `accessToken` (and expect a `no-store`, uncached read) whenever the
- * caller needs those to be accurate for the current user, e.g. to decide
- * what a join/leave button should say.
+ * Single group. Public, no auth, BUT `GET /buddyboss/v1/groups/{id}` has a
+ * confirmed live bug: its `is_member`/`can_join`/`request_id` fields
+ * resolve as if the request were anonymous, even with a valid access
+ * token — verified with `wp cache flush` in between to rule out caching,
+ * and by cross-checking a real membership that the single-item route
+ * reported as `false` while the same group returned `true` from `GET
+ * /buddyboss/v1/groups?include={id}`. That's the actual bug: the
+ * collection endpoint's `get_items()` resolves the current user
+ * correctly; the single-item endpoint's `get_item()` doesn't. So an
+ * authenticated read goes through the collection endpoint instead,
+ * filtered to one group — same response shape, just reliable.
  */
 export async function getGroup(id: number, accessToken?: string): Promise<Group> {
+  if (accessToken) {
+    const { items } = await wpFetchList(
+      `/buddyboss/v1/groups?include=${id}`,
+      (body) => groupListSchema.parse(body),
+      { accessToken, cache: "no-store" },
+    );
+    if (items[0]) return items[0];
+    // No such group for this id — fall through so the plain read below
+    // still runs, matching the anonymous 200-with-empty-body shape callers
+    // already check via `!group.id`.
+  }
   return wpFetchJson(`/buddyboss/v1/groups/${id}`, (body) => groupSchema.parse(body), {
-    accessToken,
-    ...(accessToken ? { cache: "no-store" } : { next: { revalidate: 300, tags: ["groups"] } }),
+    next: { revalidate: 300, tags: ["groups"] },
   });
 }
 

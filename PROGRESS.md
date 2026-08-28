@@ -82,6 +82,27 @@ this list whenever a new one is introduced.
 
 ## Session log
 
+### 2026-08-28 — Fix: public groups showed no Join button
+
+- User reported a public group showing neither "Join" nor "Leave" — the
+  membership button was silently absent. Root cause: `GET
+  /buddyboss/v1/groups/{id}` has a live WordPress-side bug where
+  `is_member`/`can_join`/`request_id` resolve as if the request were
+  anonymous, even with a valid access token — confirmed by comparing
+  against `GET /groups?include={id}`, which correctly resolves the same
+  fields for the same request. Full verification trail (ruled out caching,
+  ruled out a bad token, ruled out the `wp eval` red herring) is in
+  DECISIONS.md.
+- Fix: `getGroup()` now reads the collection endpoint (filtered to one
+  group) instead of the single-item endpoint whenever it's called with an
+  access token. Anonymous reads are unaffected.
+- Verified live via Playwright MCP against three real states: a public
+  group not joined (now correctly shows "Join group"), the same account's
+  actual group membership (now correctly shows "Leave group" — this had
+  been silently wrong too, not just hidden), and a private group (still
+  correctly shows "Request to join").
+- `pnpm verify` and `pnpm build` pass; deployed and re-aliased.
+
 ### 2026-08-28 — Phase 4: join/leave groups
 
 - Public groups: `POST /buddyboss/v1/groups/{id}/members` to join, `DELETE
