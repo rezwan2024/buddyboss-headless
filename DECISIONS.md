@@ -23,6 +23,39 @@ Format:
 
 ---
 
+## 2026-08-28 — Forums: `revalidateTag(tag, "max")` doesn't guarantee read-your-own-writes
+
+**Decision:** `getTopics`/`getReplies` (`packages/api-client/src/forums.ts`)
+gained an optional `accessToken` param, same shape as `getGroup`/`getMember`:
+when set, the read is `cache: "no-store"` instead of the normal
+`revalidate: 300, tags: ["forums"]`. `loadTopicsPage`/`loadRepliesPage`
+(`apps/web/app/actions.ts`) and both forum page Server Components now pass
+it through whenever the caller is logged in.
+**Why:** posting a reply worked (confirmed on WordPress directly), but the
+topic page's own refetch right after — same tab, a couple seconds later —
+still showed "No replies yet." `postReplyAction` was already calling
+`revalidateTag("forums", "max")`. The bug: `"max"` is *stale-while-
+revalidate*, not an immediate purge — Next's own docs describe it as "the
+longest stale window," which is exactly wrong for a read-your-own-writes
+case. This had been silently fine everywhere else this session
+(activity/groups/members) only because those reads already had an
+authenticated `no-store` variant for other reasons — the `revalidateTag`
+call was doing real work for the anonymous cache, and the authenticated
+path never depended on it. Forums topics/replies had no such variant
+(nothing about them is per-user), so this was the first case where
+`revalidateTag("forums", "max")` was the *only* freshness mechanism for a
+logged-in poster reading their own write — and it isn't fast enough for
+that.
+**Alternatives:** a shorter `revalidateTag` stale profile (e.g. `"seconds"`,
+30s) — rejected, still not a real guarantee, just a smaller window to get
+unlucky in. `updateTag` (immediate purge, Server-Action-only) — not used;
+this project doesn't enable Cache Components
+(`cacheComponents` unset in `next.config.ts`), and `updateTag` wasn't
+re-verified as working under the "previous model" after the earlier
+decision to avoid it for that reason (see the `wp-fetch` retry entry
+below). Matching the established `accessToken` → `no-store` pattern used
+everywhere else was the option that didn't require re-litigating that.
+
 ## 2026-08-28 — Friends: no separate reject endpoint, and don't trust static analysis of BuddyBoss's permission checks
 
 **Decision:** `packages/api-client/src/friends.ts`'s `removeFriendRequest`

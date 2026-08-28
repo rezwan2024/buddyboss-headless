@@ -1,8 +1,10 @@
 import { decodeEntities, timeAgo } from "@/lib/format";
+import { getAccessToken } from "@/lib/session";
 import { getRepliesWithAuthors, getTopicWithAuthor } from "@buddyboss-headless/api-client";
 import { notFound } from "next/navigation";
 import AuthorAvatar from "../../../../author-avatar";
 import RepliesList from "./replies-list";
+import ReplyComposer from "./reply-composer";
 
 const PER_PAGE = 20;
 
@@ -18,7 +20,13 @@ export default async function TopicDetailPage({
   // rather than a 404 status — check content, not status.
   if (!topic.id) notFound();
 
-  const replies = await getRepliesWithAuthors(topicId, { perPage: PER_PAGE });
+  // Uncached when logged in, so a fresh page load right after replying
+  // doesn't show stale, pre-reply data — see PageParams.accessToken.
+  const accessToken = await getAccessToken();
+  const replies = await getRepliesWithAuthors(topicId, {
+    perPage: PER_PAGE,
+    accessToken: accessToken ?? undefined,
+  });
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-8">
@@ -46,6 +54,7 @@ export default async function TopicDetailPage({
         initialTotal={replies.total}
         initialPages={replies.pages}
       />
+      <ReplyComposer topicId={topicId} />
     </main>
   );
 }

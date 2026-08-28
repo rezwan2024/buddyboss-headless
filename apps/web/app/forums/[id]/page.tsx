@@ -1,6 +1,8 @@
 import { decodeEntities } from "@/lib/format";
+import { getAccessToken } from "@/lib/session";
 import { getForum, getTopicsWithAuthors } from "@buddyboss-headless/api-client";
 import { notFound } from "next/navigation";
+import TopicComposer from "./topic-composer";
 import TopicsList from "./topics-list";
 
 const PER_PAGE = 20;
@@ -15,7 +17,13 @@ export default async function ForumDetailPage({ params }: PageProps<"/forums/[id
   // rather than a 404 status — check content, not status.
   if (!forum.id) notFound();
 
-  const topics = await getTopicsWithAuthors(forumId, { perPage: PER_PAGE });
+  // Uncached when logged in, so a fresh page load right after posting a
+  // topic doesn't show stale, pre-post data — see PageParams.accessToken.
+  const accessToken = await getAccessToken();
+  const topics = await getTopicsWithAuthors(forumId, {
+    perPage: PER_PAGE,
+    accessToken: accessToken ?? undefined,
+  });
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-8">
@@ -29,6 +37,7 @@ export default async function ForumDetailPage({ params }: PageProps<"/forums/[id
       )}
 
       <h2 className="mt-6 text-lg font-semibold">Topics</h2>
+      <TopicComposer forumId={forumId} />
       <TopicsList
         forumId={forumId}
         initialItems={topics.items}

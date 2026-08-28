@@ -10,13 +10,14 @@ reasoning in `DECISIONS.md`, rules in `CLAUDE.md`.
 
 ## Current state
 
-**Phase:** 4 — Authenticated actions — in progress. Done so far: posting to
-the activity feed (text-only, or with a single photo/video/document
-attachment), commenting (top-level only — no threaded replies yet),
-favorite/like (toggle, plus the existing "who liked" popover), join/leave
+**Phase:** 4 — Authenticated actions — **done**. Posting to the activity
+feed (text-only, or with a single photo/video/document attachment),
+commenting (top-level only — no threaded replies), favorite/like, join/leave
 groups (public join, private request-to-join/cancel), friends (request,
-accept, decline, cancel, remove). Still open: forum topics/replies.
-**Next task:** forum topics/replies — the last Phase 4 slice.
+accept, decline, cancel, remove), forum topics/replies (create a topic,
+reply to one).
+**Next task:** Phase 5 — Messages and notifications (see PLAN.md). Not
+started yet.
 
 ## Blockers
 
@@ -80,6 +81,43 @@ this list whenever a new one is introduced.
 ---
 
 ## Session log
+
+### 2026-08-28 — Phase 4: forum topics/replies — done, Phase 4 complete
+
+- New `TopicComposer` (forum page) and `ReplyComposer` (topic page).
+  Posting a topic navigates to the new topic's page (`router.push`, not an
+  in-place reset like the reply/comment composers — a new topic is a new
+  page, not a list item). `createTopic`/`createReply` in
+  `packages/api-client/src/forums.ts`, backed by new
+  `apps/web/app/topic-action.ts`/`reply-action.ts`.
+- Confirmed live, matching this project's established "don't trust doc
+  comments" pattern: topic-create's forum-id param is `parent` (same name
+  GET uses to filter), but reply-create's topic-id param is `topic_id`
+  (GET's equivalent filter is `parent` — different name for the same
+  concept between the two endpoints).
+- Real bug caught by testing in the browser, not by the test suite:
+  posting a reply worked on WordPress, but the topic page's own refetch
+  right after still showed "No replies yet." — `revalidateTag(tag, "max")`
+  is stale-while-revalidate, not an immediate purge, and forums reads had
+  no authenticated no-store variant the way activity/groups/members did
+  (which is what made the same `"max"` choice harmless everywhere else).
+  Fixed by giving `getTopics`/`getReplies` the same optional-`accessToken`
+  → `no-store` pattern already used elsewhere. Full writeup in
+  DECISIONS.md — reread it before adding another `revalidateTag` call
+  anywhere in this codebase.
+- Verified live via Playwright MCP: created a topic (navigated to it
+  correctly), posted a reply (showed up immediately after the fix — did
+  not before), reloaded and confirmed persistence. Test topic/replies
+  deleted from the live site afterward (had to use `wp post delete`
+  directly — the test account's token got 403'd trying to delete via the
+  REST API, worth knowing if a "delete my own test post" cleanup step is
+  ever needed again).
+- `pnpm verify` and `pnpm build` pass.
+- **What to look at:** any forum page — post a topic, then open it and
+  post a reply. Both should appear without a manual reload.
+- **This closes out Phase 4.** Everyday authenticated actions (post,
+  comment, like, join/leave groups, friends, forum topics/replies) all
+  work end to end. Phase 5 (messages, notifications) is next, not started.
 
 ### 2026-08-28 — Phase 4: friend request/accept/decline/cancel/remove
 

@@ -49,14 +49,28 @@ export async function loadForumsPage(page: number) {
   return getForums({ page, perPage: PER_PAGE });
 }
 
-/** Called client-side by the infinite-scroll topic list on a forum's page. */
+/**
+ * Called client-side by the infinite-scroll topic list on a forum's page.
+ * Reads uncached when logged in — see `PageParams.accessToken`'s doc
+ * comment for why posting a topic needs this to show up without a reload.
+ */
 export async function loadTopicsPage(forumId: number, page: number) {
-  return getTopicsWithAuthors(forumId, { page, perPage: PER_PAGE });
+  const accessToken = await getAccessToken();
+  return getTopicsWithAuthors(forumId, {
+    page,
+    perPage: PER_PAGE,
+    accessToken: accessToken ?? undefined,
+  });
 }
 
-/** Called client-side by the infinite-scroll reply list on a topic's page. */
+/** Called client-side by the infinite-scroll reply list on a topic's page. Same reasoning as `loadTopicsPage`. */
 export async function loadRepliesPage(topicId: number, page: number) {
-  return getRepliesWithAuthors(topicId, { page, perPage: PER_PAGE });
+  const accessToken = await getAccessToken();
+  return getRepliesWithAuthors(topicId, {
+    page,
+    perPage: PER_PAGE,
+    accessToken: accessToken ?? undefined,
+  });
 }
 
 /** Called client-side by the infinite-scroll blog list, including on search. */

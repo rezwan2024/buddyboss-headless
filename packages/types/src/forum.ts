@@ -51,3 +51,9 @@ export const replySchema = z.object({
 export type Reply = z.infer<typeof replySchema>;
 
 export const replyListSchema = z.array(replySchema);
+
+// POST /buddyboss/v1/topics and /buddyboss/v1/reply — both return the full
+// created post, but this project only needs the id (to redirect to the new
+// topic, or to refetch the reply list).
+export const forumPostCreateResponseSchema = z.object({ id: looseNumber });
+export type ForumPostCreateResponse = z.infer<typeof forumPostCreateResponseSchema>;
