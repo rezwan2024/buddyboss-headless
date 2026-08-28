@@ -1,8 +1,10 @@
 import { decodeEntities } from "@/lib/format";
+import { getAccessToken } from "@/lib/session";
 import { getGroup, getGroupMembers } from "@buddyboss-headless/api-client";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import GroupMembers from "./group-members";
+import GroupMembershipButton from "./group-membership-button";
 
 const PER_PAGE = 20;
 
@@ -11,7 +13,11 @@ export default async function GroupDetailPage({ params }: PageProps<"/groups/[id
   const groupId = Number(id);
   if (!Number.isInteger(groupId) || groupId <= 0) notFound();
 
-  const group = await getGroup(groupId);
+  // `is_member`/`can_join`/`request_id` are per-user, so this needs the
+  // access token and can't be the anonymous, ISR-cached read other pages
+  // use — see getGroup's doc comment.
+  const accessToken = await getAccessToken();
+  const group = await getGroup(groupId, accessToken ?? undefined);
   // BuddyBoss returns 200 with an empty/error body for an unknown group
   // rather than a 404 status — check content, not status.
   if (!group.id) notFound();
@@ -53,6 +59,11 @@ export default async function GroupDetailPage({ params }: PageProps<"/groups/[id
               // biome-ignore lint/security/noDangerouslySetInnerHtml: sanitized server-side by WordPress (wp_kses), not raw user input
               dangerouslySetInnerHTML={{ __html: group.description.rendered }}
             />
+          )}
+          {accessToken && (
+            <div className="mt-3">
+              <GroupMembershipButton group={group} />
+            </div>
           )}
         </div>
       </div>

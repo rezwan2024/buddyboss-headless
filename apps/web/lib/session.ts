@@ -27,6 +27,25 @@ export async function getAccessToken(): Promise<string | null> {
   return store.get(ACCESS_TOKEN_COOKIE)?.value ?? null;
 }
 
+/**
+ * Server Components/Actions only — the logged-in user's id/name, or null.
+ * Reads the same non-httpOnly `hl_user` cookie `<AuthStatus>` reads
+ * client-side; server-side access isn't affected by the `httpOnly` flag,
+ * that only blocks `document.cookie`. Needed wherever a Server Action must
+ * send the current user's own ID as a request param (e.g. leaving a group
+ * — `DELETE /groups/{id}/members/{user_id}`), not just the access token.
+ */
+export async function getSessionUser(): Promise<SessionUser | null> {
+  const store = await cookies();
+  const raw = store.get(USER_COOKIE)?.value;
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as SessionUser;
+  } catch {
+    return null;
+  }
+}
+
 /** Called from a Server Action or middleware — persists a fresh token pair. */
 export async function setSessionCookies(tokens: TokenResponse): Promise<void> {
   const store = await cookies();

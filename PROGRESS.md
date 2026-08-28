@@ -13,10 +13,11 @@ reasoning in `DECISIONS.md`, rules in `CLAUDE.md`.
 **Phase:** 4 — Authenticated actions — in progress. Done so far: posting to
 the activity feed (text-only, or with a single photo/video/document
 attachment), commenting (top-level only — no threaded replies yet),
-favorite/like (toggle, plus the existing "who liked" popover). Still open:
-join/leave groups, forum topics/replies, friends.
-**Next task:** pick the next Phase 4 slice — join/leave groups is probably
-the simplest remaining one (single toggle, no composer/thread UI needed).
+favorite/like (toggle, plus the existing "who liked" popover), join/leave
+groups (public join, private request-to-join/cancel). Still open: forum
+topics/replies, friends.
+**Next task:** pick the next Phase 4 slice — forum topics/replies and
+friends are both left; neither shares much UI with what's already built.
 
 ## Blockers
 
@@ -80,6 +81,52 @@ this list whenever a new one is introduced.
 ---
 
 ## Session log
+
+### 2026-08-28 — Phase 4: join/leave groups
+
+- Public groups: `POST /buddyboss/v1/groups/{id}/members` to join, `DELETE
+  .../members/{user_id}` to leave. Private groups need a different flow —
+  the join endpoint 500s outright on a private group (confirmed live, not
+  from doc comments) — so private groups use `POST
+  /buddyboss/v1/groups/membership-requests` (request) and `DELETE
+  .../membership-requests/{request_id}` (cancel) instead. All four in
+  `packages/api-client/src/groups.ts`, wired up in the new
+  `apps/web/app/group-membership-action.ts` and
+  `apps/web/app/groups/[id]/group-membership-button.tsx`.
+- `groupSchema` gained `is_member`/`can_join`/`request_id` — per-user
+  fields, so `getGroup` now takes an optional `accessToken` and the detail
+  page (`groups/[id]/page.tsx`) reads it uncached (`no-store`) when logged
+  in, same pattern as the activity feed. `request_id`/`invite_id` come back
+  as the boolean `false` (not `0`) when unset — confirmed live, handled by
+  reusing `looseNumber`'s existing coercion rather than a new special case.
+- Added `getSessionUser()` to `lib/session.ts` (reads the same non-httpOnly
+  `hl_user` cookie `<AuthStatus>` already reads client-side) — needed
+  because leaving a group requires the current user's own ID in the URL
+  path, not just the access token.
+- Same non-optimistic discipline as the like button: the membership button
+  calls its action and only calls `router.refresh()` after it resolves.
+  `router.refresh()` (not a query-cache invalidation) is the right tool
+  here specifically because this page has no client-side query cache to
+  fight — it's plain server-rendered props.
+- Hit a confusing one chasing an unrelated failing test: Next.js 16 moved
+  the dev server's fetch cache to `.next/dev/cache` (not `.next/cache`,
+  which is what every existing habit and most docs still say) — spent a
+  while convinced a bug was live-API-side because clearing the *old* path
+  did nothing. Worth remembering next time a dev-only cache seems stuck.
+- Verified live via Playwright MCP against a real public group (join →
+  member count +1 → leave → count reverts) and a real private group
+  (request → button becomes "Cancel request" → cancel → reverts).
+- One real side effect from this session's *manual* API testing (not from
+  the shipped code): my curl testing had temporarily emptied a real
+  group's member list on the live site, which is what actually broke the
+  pre-existing groups e2e test — fixed by rejoining that group, not by
+  changing code. Worth a reminder: manual curl testing against the live
+  site during development is real state, not a sandbox — clean up test
+  actions before assuming a subsequent test failure is a code bug.
+- `pnpm verify` and `pnpm build` pass.
+- **What to look at:** any group page while logged in — a public group
+  should show "Join group"/"Leave group", a private one "Request to
+  join"/"Cancel request".
 
 ### 2026-08-28 — Phase 4: like/unlike an activity post
 

@@ -23,6 +23,28 @@ Format:
 
 ---
 
+## 2026-08-28 — Private groups use a separate request endpoint, not the join endpoint
+
+**Decision:** `apps/web/app/groups/[id]/group-membership-button.tsx` branches
+on `group.status` before calling anything: `'private'` goes through
+`requestGroupMembership`/`cancelGroupMembershipRequest`
+(`POST`/`DELETE /buddyboss/v1/groups/membership-requests[/...]`); anything
+else (public) goes through `joinGroup`/`leaveGroup`
+(`POST`/`DELETE /buddyboss/v1/groups/{id}/members[/...]`).
+**Why:** confirmed live — `POST /groups/{id}/members` on a private group
+doesn't create a pending request, it fails outright with a 500
+(`bp_rest_group_member_failed_to_join`). Reading
+`class-bp-rest-group-membership-endpoint.php`'s
+`create_item_permissions_check()` confirms this is deliberate BuddyBoss
+behavior (private groups explicitly rejected there), not a bug — the doc
+comments don't mention it either way, so this would've been easy to miss
+without testing against the live install. `request_id` on the group GET
+response (also confirmed live: comes back as boolean `false`, not `0`,
+when there's no pending request) is what the button uses to show "Request
+to join" vs. "Cancel request".
+**Alternatives:** none considered — this is simply how the API works, not
+a design choice with a real alternative.
+
 ## 2026-08-28 — Like/favorite: no optimistic UI, wait for the toggle result
 
 **Decision:** `LikesRow`'s like button (`apps/web/app/activity-feed-list.tsx`)
