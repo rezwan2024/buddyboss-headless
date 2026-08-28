@@ -16,6 +16,7 @@ require_once __DIR__ . '/includes/class-jwt.php';
 require_once __DIR__ . '/includes/class-tokens.php';
 require_once __DIR__ . '/includes/class-auth.php';
 require_once __DIR__ . '/includes/class-rest-controller.php';
+require_once __DIR__ . '/includes/class-revalidate.php';
 
 // Registered here, at plugin-file scope, rather than on any hook. If a
 // determine_current_user filter is added even one moment too late — say,
@@ -26,5 +27,6 @@ require_once __DIR__ . '/includes/class-rest-controller.php';
 // token. Registering at file-load time (during WordPress's plugin-loading
 // pass, before `plugins_loaded` even fires) is the earliest point available.
 Headless\Auth\Auth::init();
+Headless\Auth\Revalidate::init();
 
 add_action( 'rest_api_init', array( 'Headless\\Auth\\REST_Controller', 'register_routes' ) );
