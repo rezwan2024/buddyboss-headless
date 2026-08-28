@@ -6,5 +6,6 @@ export * from "./friends";
 export * from "./groups";
 export * from "./media";
 export * from "./members";
+export * from "./messages";
 export * from "./posts";
 export * from "./site";

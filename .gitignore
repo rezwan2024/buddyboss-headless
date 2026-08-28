@@ -6,6 +6,7 @@ node_modules/
 docs/samples/
 test-results/
 playwright-report/
+.playwright-mcp/
 blob-report/
 .vercel
 vendor/

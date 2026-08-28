@@ -23,6 +23,48 @@ Format:
 
 ---
 
+## 2026-08-28 — Messages: no server-side thread dedup, and a counter-intuitive "mark read" flag
+
+**Decision:** Before sending a first message to someone (`message-action.ts`'s
+`startConversationAction`, wired to the "Message" button on a profile), always
+call `GET /buddyboss/v1/messages/search-thread?recipient_id={id}` first and
+route into the existing thread if one comes back. Only fall through to the
+`/messages/new?to={id}` compose page when it returns `[]` (no thread yet).
+Separately, marking a thread read is `POST /messages/action/{id}` with
+`{action: "unread", value: false}` — `value: false` marks it *read*.
+**Why:** confirmed live (both directions, two real test accounts) that
+`POST /buddyboss/v1/messages` with `recipients: [id]` and no `id` field
+creates a brand-new thread every time, even when the two users already share
+one — BuddyBoss does not dedup on the write side. Without the
+`search-thread` check first, repeat "Message" clicks would fragment a
+conversation into multiple threads. The `value: false` → read behavior is
+also confirmed live and is the opposite of what the field name suggests;
+`GET`-ing a thread does not mark it read on its own, so `page.tsx` calls
+`markThreadRead` explicitly (best-effort, swallows failure) whenever
+`unread_count > 0`.
+**Alternatives:** none seriously considered — `search-thread` is the only
+endpoint BuddyBoss exposes for this, and the mark-read semantics aren't a
+choice, just a fact to document so a future session doesn't "fix" it by
+inverting the boolean.
+
+## 2026-08-28 — bbPress topic/reply deletion doesn't cascade to the activity stream
+
+**Decision:** No code change — this is a test-cleanup gotcha, documented so
+it isn't rediscovered from scratch. Deleting a forum topic or reply with
+`wp post delete --force` does **not** remove the `bp_activity` row BuddyBoss
+creates alongside it (type `bbp_topic_create` / `bbp_reply_create`). To
+actually remove test forum content from the activity feed, also call
+`bp_activity_delete(["id" => $id])` via `./scripts/wp eval` for each
+orphaned activity id (find them with `wp bp activity list` filtered by
+component/type, or by eyeballing the feed).
+**Why:** discovered mid-session — 5 test activity entries from earlier
+forum-feature testing were still visible in the feed days after the
+underlying topic/reply posts had been deleted. `bp_activity_delete()` is a
+separate cleanup step, not automatic.
+**Alternatives:** none — this is how BuddyBoss/bbPress actually behaves;
+noting it here so future test cleanup checks the activity stream too, not
+just `wp post delete`.
+
 ## 2026-08-28 — Forums: `revalidateTag(tag, "max")` doesn't guarantee read-your-own-writes
 
 **Decision:** `getTopics`/`getReplies` (`packages/api-client/src/forums.ts`)

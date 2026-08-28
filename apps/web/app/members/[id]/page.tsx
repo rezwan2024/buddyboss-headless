@@ -4,6 +4,7 @@ import { getMember } from "@buddyboss-headless/api-client";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import FriendshipButton from "./friendship-button";
+import MessageButton from "./message-button";
 
 export default async function MemberProfilePage({ params }: PageProps<"/members/[id]">) {
   const { id } = await params;
@@ -60,8 +61,9 @@ export default async function MemberProfilePage({ params }: PageProps<"/members/
             )}
           </dl>
           {accessToken && sessionUser && sessionUser.id !== member.id && (
-            <div className="mt-3">
+            <div className="mt-3 flex gap-2">
               <FriendshipButton member={member} />
+              <MessageButton memberId={member.id} />
             </div>
           )}
         </div>

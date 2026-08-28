@@ -10,14 +10,10 @@ reasoning in `DECISIONS.md`, rules in `CLAUDE.md`.
 
 ## Current state
 
-**Phase:** 4 — Authenticated actions — **done**. Posting to the activity
-feed (text-only, or with a single photo/video/document attachment),
-commenting (top-level only — no threaded replies), favorite/like, join/leave
-groups (public join, private request-to-join/cancel), friends (request,
-accept, decline, cancel, remove), forum topics/replies (create a topic,
-reply to one).
-**Next task:** Phase 5 — Messages and notifications (see PLAN.md). Not
-started yet.
+**Phase:** 5 — Messages and notifications — **in progress**. Messages
+(thread list, single thread, send new/reply, unread badge + mark-read) is
+done. Notifications not started.
+**Next task:** Notifications (see PLAN.md).
 
 ## Blockers
 
@@ -77,10 +73,62 @@ this list whenever a new one is introduced.
 |---|---|
 | `WP_URL` | BuddyBoss REST base URL — `https://st2-rezwan.hz2.developbb.dev`. Set in `apps/web/.env.local` and in Vercel (Production/Preview/Development) via `vercel env add`. |
 | `TEST_USER_LOGIN` / `TEST_USER_PASSWORD` | Dedicated WP test account (`headless-test`, user ID 25, subscriber role) for `tests/e2e/auth.spec.ts`. Local-only, `apps/web/.env.local` only — **not** in Vercel, these tests don't run there. Auth tests skip themselves if unset. |
+| `TEST_USER2_LOGIN` / `TEST_USER2_PASSWORD` | Second dedicated WP test account (`headless-test-2`, user ID 27, subscriber role) — needed for two-way flows a single account can't verify alone (messages, receiving/accepting a friend request). Local-only, same as `TEST_USER_LOGIN` above — **not** in Vercel, no test currently automates against it (used for manual Playwright MCP verification only). |
 
 ---
 
 ## Session log
+
+### 2026-08-28 — Phase 5: Messages (thread list, single thread, send/reply)
+
+- New `packages/types/src/message.ts` (thread/message zod schemas — a
+  thread response embeds its own `messages[]`, there's no separate
+  per-message endpoint) and `packages/api-client/src/messages.ts`
+  (`getThreads`, `getThread`, `findThreadWithRecipient`, `sendNewThread`,
+  `replyToThread`, `markThreadRead`).
+- New routes: `/messages` (inbox, infinite scroll — `ThreadsList`), 
+  `/messages/[id]` (thread view — `MessagesThread` + `ReplyComposer`), 
+  `/messages/new?to={id}` (first-message compose page). `MessageButton` on
+  a member's profile calls `findThreadWithRecipient` first and routes into
+  the existing thread if one exists, else to the compose page — see
+  DECISIONS.md for why (BuddyBoss doesn't dedup threads on send). Added a
+  "Messages" nav link, shown only when logged in
+  (`messages-nav-link.tsx`, same client-side session-cookie pattern as
+  `<AuthStatus>`).
+- `unread_count` drives a bold name + blue dot in the inbox list;
+  `markThreadRead` fires server-side in `messages/[id]/page.tsx` whenever a
+  thread is opened with `unread_count > 0` (best-effort, doesn't block
+  rendering on failure). Counter-intuitive API behavior here — see
+  DECISIONS.md before touching this code.
+- Created a second dedicated test account (`headless-test-2`, user ID 27,
+  subscriber role) via wp-cli — messages, like friend-request
+  accept/decline, need two real accounts to verify both directions.
+  Credentials in `apps/web/.env.local` only (`TEST_USER2_LOGIN`/
+  `TEST_USER2_PASSWORD`), same local-only pattern as the first test
+  account.
+- Verified live end-to-end via Playwright MCP switching between both real
+  accounts: `headless-test` → `headless-test-2`'s profile → Message →
+  routed to compose (no existing thread) → sent → redirected into the new
+  thread. Logged in as `headless-test-2`: inbox showed the thread bold with
+  an unread dot, opened it, replied — both messages rendered correctly
+  (own message right-aligned/dark, other's left-aligned/light), no reload
+  needed. Logged back in as `headless-test`: reply now showed as the
+  inbox excerpt, unread indicator present, opening the thread cleared it.
+  Test thread deleted afterward (`wp eval 'messages_delete_thread(id);'`).
+- Along the way, found and cleaned up 5 orphaned `bp_activity` rows left
+  over from earlier forum-feature test cleanup (`wp post delete` doesn't
+  cascade-delete the activity-stream entry bbPress creates alongside a
+  topic/reply) — see DECISIONS.md, this is a general test-cleanup gotcha,
+  not specific to messages.
+- `pnpm verify` and `pnpm build` pass (two unrelated pre-existing e2e
+  flakes — `blog.spec.ts`/`forums.spec.ts` click-navigation timing — both
+  confirmed to pass individually in isolation, not a regression from this
+  work).
+- **What to look at:** any other member's profile → "Message" button →
+  send → check the other test account's `/messages` inbox for the unread
+  badge, then confirm it clears on open. Not covered by this slice: group
+  message threads, starred/sentbox views, message attachments,
+  notifications (next).
 
 ### 2026-08-28 — Phase 4: forum topics/replies — done, Phase 4 complete
 

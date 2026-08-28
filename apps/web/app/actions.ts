@@ -10,6 +10,8 @@ import {
   getMembers,
   getPosts,
   getRepliesWithAuthors,
+  getThread,
+  getThreads,
   getTopicsWithAuthors,
 } from "@buddyboss-headless/api-client";
 
@@ -76,4 +78,29 @@ export async function loadRepliesPage(topicId: number, page: number) {
 /** Called client-side by the infinite-scroll blog list, including on search. */
 export async function loadPostsPage(page: number, search: string) {
   return getPosts({ page, perPage: PER_PAGE, search: search || undefined });
+}
+
+/**
+ * Called client-side by the infinite-scroll inbox thread list.
+ * `getThreads` requires both a user id and a token (thread data is
+ * inherently per-user) — returns an empty page if logged out rather than
+ * throwing, since the page itself already gates on being logged in.
+ */
+export async function loadThreadsPage(userId: number, page: number) {
+  const accessToken = await getAccessToken();
+  if (!accessToken) return { items: [], total: 0, pages: 1, unreadCount: 0 };
+  return getThreads(userId, accessToken, { page, perPage: PER_PAGE });
+}
+
+/**
+ * Called client-side by the thread view to refetch after sending a reply
+ * — same read-your-own-writes need as `loadTopicsPage`/`loadRepliesPage`,
+ * except this one was always `no-store` to begin with (thread data is
+ * inherently per-user), so no separate accessToken-threading fix was
+ * needed here.
+ */
+export async function loadThread(threadId: number) {
+  const accessToken = await getAccessToken();
+  if (!accessToken) return null;
+  return getThread(threadId, accessToken);
 }
