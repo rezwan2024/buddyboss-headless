@@ -23,6 +23,34 @@ Format:
 
 ---
 
+## 2026-08-28 — Caching audit: two latent per-user fields left un-gated on purpose
+
+**Decision:** Not changing `getGroups()` (the `/groups` directory) or
+`getActivityComments()` to take an `accessToken`, even though their
+response schemas (`groupSchema`, `activitySchema`) technically carry
+per-user fields (`is_member`/`can_join`/`request_id`; `favorited`) that
+would be stale/wrong for a logged-in user if read from those endpoints'
+anonymous, ISR-cached responses.
+**Why:** confirmed via `grep` that no component reading either endpoint's
+list response actually renders those fields today — `is_member`/
+`can_join`/`request_id` are only read by `group-membership-button.tsx`,
+which only ever gets its `group` prop from `getGroup()` (the detail page,
+already correctly authenticated); `favorited` is only read by
+`activity-feed-list.tsx`, which gets its data from `getActivityFeed()`
+(also already correctly authenticated), never from
+`getActivityComments()`. So the fields are present in the type but dead in
+every current call path — not a live bug, just latent risk.
+**Alternatives:** thread `accessToken` through both anyway, preemptively —
+rejected for now; it would mean giving up ISR caching on two
+high-traffic, mostly-anonymous-audience pages (the groups directory, every
+comment thread) for a correctness guarantee nothing currently needs.
+Revisit **the moment** either screen grows a feature that reads one of
+these fields (a "Join" button on a group card, a like button on a
+comment) — at that point this stops being latent and becomes the same
+class of bug the groups single-item endpoint had (see the `getGroup`
+entry above), and the fix is the same established `accessToken` →
+`no-store` pattern used everywhere else.
+
 ## 2026-08-28 — Notifications: no bulk mark-read, and never render `description.rendered` raw
 
 **Decision:** Notifications are marked read one at a time (`PATCH

@@ -10,10 +10,11 @@ reasoning in `DECISIONS.md`, rules in `CLAUDE.md`.
 
 ## Current state
 
-**Phase:** 5 — Messages and notifications — **done**. Messages (thread
-list, single thread, send new/reply, unread badge + mark-read) and
-notifications (list, mark read, unread count badge, polling) both live.
-**Next task:** Phase 6 — Production hardening (see PLAN.md). Not started.
+**Phase:** 6 — Production hardening — **in progress**. Caching audit done
+(no bugs found, see session log). Remaining: error boundaries/404/500
+pages, cookie-flags-per-environment review, cache revalidation webhook,
+rate limiting on auth routes, Lighthouse pass.
+**Next task:** pick the next Phase 6 item (see PLAN.md's punch list).
 
 ## Blockers
 
@@ -78,6 +79,36 @@ this list whenever a new one is introduced.
 ---
 
 ## Session log
+
+### 2026-08-28 — Phase 6: Caching audit — no bugs found
+
+- Read-only audit per `PLAN.md`'s Phase 6 item ("confirm nothing
+  user-specific is cached"), no code changes. Went through every
+  `packages/api-client/src/*.ts` module's `cache`/`next.revalidate`
+  directives, every page's `getAccessToken()` usage, `proxy.ts`, and
+  `next.config.ts` for anything that could serve one user's authenticated
+  data to another from a shared cache.
+- **Clean result:** every function that accepts `accessToken` sets
+  `cache: "no-store"` when it's present, consistently, across activity,
+  members, groups, forums, messages, notifications, friends, and media.
+  Every page that needs per-user data (`/`, `/groups/[id]`,
+  `/members/[id]`, `/forums/[id]`, `/forums/[id]/topics/[topicId]`,
+  `/messages*`, `/notifications`) calls `getAccessToken()`/`cookies()` and
+  is correctly server-rendered dynamically (confirmed in `pnpm build`'s
+  route table — all `ƒ`, not `○`). No page-level `revalidate`/`dynamic`
+  export anywhere overrides a per-fetch cache directive. `proxy.ts` sets no
+  cache-control headers that could make a CDN cache an authenticated
+  response.
+- **Two latent-but-inert findings, documented rather than "fixed"** (no UI
+  reads them where they'd matter, confirmed by grep, not assumption — see
+  DECISIONS.md for the full reasoning): `groupSchema` carries per-user
+  `is_member`/`can_join`/`request_id` even in the `/groups` directory's
+  anonymous ISR-cached list response, and `activitySchema` carries
+  per-user `favorited` in the (also anonymous-cached) comment-thread
+  response — worth remembering if either screen ever grows a join/like
+  button of its own, since today neither reads those fields at all.
+- **What to look at:** nothing — no UI changed. This was a code-reading
+  pass, not a feature.
 
 ### 2026-08-28 — Phase 5: Notifications — done, Phase 5 complete
 
