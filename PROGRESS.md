@@ -16,7 +16,10 @@ pass, rate limiting on login, cache revalidation webhook — all shipped
 and verified live. Post-Phase-6: user-requested fixes/polish, taken one
 at a time (see session log) — header layout, site-wide font size, a
 3-column dashboard layout for the activity home page, icon-only header
-nav for messages/notifications, and self-service sign-up.
+nav for messages/notifications, self-service sign-up, and a LearnDash
+courses feature (catalog, enrollment, lessons/topics, completion
+tracking) — the first item PLAN.md's own "revisit only after Phase 6"
+note was written for.
 **Next task:** none currently planned — awaiting the next item in that
 list from the user.
 
@@ -96,6 +99,74 @@ this list whenever a new one is introduced.
 ---
 
 ## Session log
+
+### 2026-08-29 — Phase 7: LearnDash courses (catalog, enrollment, lessons/topics, completion)
+
+- User asked for LearnDash courses — the first `PLAN.md` "out of scope,
+  revisit only after Phase 6" item, now that Phase 6 is done. Scoped down
+  first (courses + lessons/topics + completion, deferring quizzes/
+  assignments/certificates — see `PLAN.md`'s new Phase 7) since the full
+  API surface (quiz start/save/next/prev/check/leaderboard, assignment
+  file uploads) is genuinely a separate slice's worth of work.
+- Researched rather than assumed: this site actually has *five* different
+  LearnDash-adjacent REST namespaces active (`ldlms/v1`, `ldlms/v2`,
+  `learndash/v1`, `buddyboss/v1/learndash/courses`, `buddyboss-app/learndash/v1`).
+  `ldlms/v2` (LearnDash's own official API) 403s for a plain subscriber;
+  the single `buddyboss/v1/learndash/courses` bridge route has no
+  detail/lesson/topic/enroll/complete routes at all. `buddyboss-app/learndash/v1`
+  — the same REST API BuddyBoss's own official mobile app uses — is the
+  one that actually works end-to-end for a non-admin user, confirmed live
+  for every route this slice needed.
+- New `packages/types/src/learndash.ts` and `packages/api-client/src/learndash.ts`
+  (`getCourses`, `getCourse`, `enrollInCourse`, `getCourseLessons`,
+  `getLesson`, `setLessonComplete`, `getLessonTopics`, `getLessonTopic`,
+  `setLessonTopicComplete`). New routes: `/courses` (catalog),
+  `/courses/[id]` (detail — cover, enroll button or progress bar, lesson
+  list), `/courses/[id]/lessons/[lessonId]` (content + topic list),
+  `/courses/[id]/lessons/[lessonId]/topics/[topicId]` (content + mark
+  complete/incomplete). "Courses" added to the header nav.
+- **Two real bugs in the live BuddyBoss App API found and worked around,
+  both confirmed live before assuming the frontend code was at fault:**
+  1. **A response cache not keyed by user.** Every `buddyboss-app/learndash/v1`
+     GET carries an `x-app-api-cache` header — confirmed this is a real
+     server-side cache, and it's keyed on the request URL only, *not* the
+     Authorization header: three identical requests with a real, valid
+     bearer token returned `has_course_access: false` every time
+     (`x-app-api-cache: hit`) for an account independently confirmed
+     enrolled via `ld_course_check_user_access()` over `wp eval`.
+     Whichever user's request happens to populate the cache for a given
+     URL is what every other user sees afterward. A throwaway query
+     param forces a cache miss and the correct, per-user value — applied
+     to every authenticated read in `learndash.ts` (`cacheBust()`).
+     `Cache-Control`/`Pragma: no-cache` request headers do not help.
+  2. **The topics endpoint's `lesson_id` filter doesn't filter.** Unlike
+     `course_id` on the lessons endpoint (confirmed real — a bogus id
+     correctly returns an empty array), `topics?lesson_id=` always
+     returns every topic for the whole course. Caught by an actual UI
+     bug during verification (a lesson page showed 4 topics instead of
+     2, including one from a different lesson). Fixed by filtering
+     client-side on each topic's own real `lesson` field instead of
+     trusting the query param.
+  3. Smaller, expected finding: LearnDash's own sequential-progress rule
+     rejected an out-of-order "mark complete" with a real, human-readable
+     error ("You must complete each lesson/topic in sequence.") — not a
+     bug, but the action's error handling was rewritten to surface that
+     real message instead of a generic "try again" once it showed up
+     during testing.
+- Verified live end-to-end via Playwright MCP: catalog → course detail →
+  enroll → lesson list → lesson → topic → mark complete (correctly
+  blocked by sequence rule, then succeeded once the prerequisite was
+  done) → course progression updated (0% → 16% → 66% as real actions
+  were taken). Test enrollment/progress state left on the dedicated
+  `headless-test` account (not cleaned up) — matches this project's
+  existing convention that test-account state, unlike shared/visible
+  content, doesn't need scrubbing.
+- `pnpm verify` (24/25 e2e, `--workers=1` — the one failure is the same
+  pre-existing locator fragility documented earlier, unrelated) and
+  `pnpm build` pass.
+- **What to look at:** `/courses` — the one real course on this install
+  ("test") should show real enrollment/progress numbers that update as
+  you enroll, open lessons/topics, and mark them complete.
 
 ### 2026-08-29 — Fix: header stuck showing "logged out" after logout then a different login
 

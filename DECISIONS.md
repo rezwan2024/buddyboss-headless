@@ -23,6 +23,68 @@ Format:
 
 ---
 
+## 2026-08-29 — LearnDash: use `buddyboss-app/learndash/v1`, not `ldlms/v2`
+
+**Decision:** `packages/api-client/src/learndash.ts` calls
+`buddyboss-app/learndash/v1` exclusively for courses/lessons/topics/
+enroll/complete.
+**Why:** this install has five LearnDash-adjacent REST namespaces
+registered (`ldlms/v1`, `ldlms/v2`, `learndash/v1`,
+`buddyboss/v1/learndash/courses`, `buddyboss-app/learndash/v1`) —
+checked all of them live rather than picking the most "official"-looking
+one. `ldlms/v2` (LearnDash's own API) `403`s for a plain subscriber, even
+authenticated correctly (confirmed the token itself worked against other
+endpoints in the same request). `buddyboss/v1/learndash/courses` is a
+single route with no detail, lesson, topic, enroll, or complete endpoints
+at all — can't build this feature on it. `buddyboss-app/learndash/v1` is
+the API BuddyBoss's own official mobile app uses for exactly this
+feature set, works for a plain subscriber, and every route this slice
+needed was confirmed live.
+**Alternatives:** none viable — the other four namespaces are either
+permission-gated above what a member needs or too thin to cover
+enrollment/lesson/topic/completion.
+
+## 2026-08-29 — LearnDash App API: a response cache not keyed by user
+
+**Decision:** Every authenticated `buddyboss-app/learndash/v1` GET in
+`learndash.ts` appends a throwaway `_cb={timestamp}` query parameter
+(`cacheBust()`).
+**Why:** confirmed live, not assumed: this API's responses carry an
+`x-app-api-cache` header, and it really is a server-side cache — three
+identical requests with the exact same valid bearer token returned
+`has_course_access: false` every time (`x-app-api-cache: hit`) for an
+account independently confirmed enrolled via
+`ld_course_check_user_access()` over `wp eval`. The cache is keyed on the
+request URL alone, not the Authorization header — whichever user's
+request happens to populate the cache for a given URL first is what
+*every other user* sees for that URL afterward, until it expires. This
+is a real, live cross-user data leak in BuddyBoss's own app-API plugin,
+not something introduced by or fixable in this project's code. A unique
+query param forces a cache miss and the correct per-user value every
+time (confirmed: `x-app-api-cache: miss`, correct value); `Cache-Control`/
+`Pragma: no-cache` request headers do not bypass it.
+**Alternatives:** none from this side of the wire — the cache lives in
+WordPress/the BuddyBoss App plugin, not anything this project controls.
+Reported here rather than silently worked around so a future session
+doesn't mistake the workaround for unnecessary caution and remove it.
+
+## 2026-08-29 — LearnDash App API: `topics?lesson_id=` doesn't actually filter
+
+**Decision:** `getLessonTopics()` fetches the (unfiltered, despite the
+query param) topics list and filters client-side on each topic's own
+`lesson` field instead of trusting `lesson_id`.
+**Why:** confirmed live — `course_id` on the lessons endpoint is a real
+filter (a bogus id correctly returns an empty array), but the equivalent
+`lesson_id` param on the topics endpoint is silently ignored; every call
+returns every topic for the whole course regardless of what's passed.
+Caught by an actual UI bug during manual verification (a lesson page
+showed 4 topics instead of 2, one of them from a different lesson
+entirely, wrongly marked complete) — not from reading docs or guessing.
+Every topic response does carry its own real `lesson` id, so filtering
+client-side is free and reliable regardless of whether BuddyBoss ever
+fixes the server-side param.
+**Alternatives:** none — this is what the live API actually does.
+
 ## 2026-08-29 — Sign-up uses BuddyBoss's own `/signup` REST API, not a custom endpoint
 
 **Decision:** `packages/api-client/src/signup.ts` calls

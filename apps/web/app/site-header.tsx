@@ -50,6 +50,9 @@ export default async function SiteHeader() {
           <Link href="/blog" className="hover:text-black dark:hover:text-white">
             Blog
           </Link>
+          <Link href="/courses" className="hover:text-black dark:hover:text-white">
+            Courses
+          </Link>
         </nav>
         {/* Notification, message, and account icons grouped together on the
             right edge, in that order — not in the centered nav. */}

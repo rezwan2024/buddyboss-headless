@@ -4,6 +4,7 @@ export * from "./auth";
 export * from "./forums";
 export * from "./friends";
 export * from "./groups";
+export * from "./learndash";
 export * from "./media";
 export * from "./members";
 export * from "./messages";

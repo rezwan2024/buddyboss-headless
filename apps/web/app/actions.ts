@@ -4,6 +4,7 @@ import { getAccessToken } from "@/lib/session";
 import {
   getActivityComments,
   getActivityFeed,
+  getCourses,
   getForums,
   getGroupMembers,
   getGroups,
@@ -123,4 +124,10 @@ export async function loadUnreadNotificationCount() {
   const accessToken = await getAccessToken();
   if (!accessToken) return 0;
   return getUnreadNotificationCount(accessToken);
+}
+
+/** Called client-side by the infinite-scroll course catalog. */
+export async function loadCoursesPage(page: number) {
+  const accessToken = await getAccessToken();
+  return getCourses({ page, perPage: PER_PAGE, accessToken: accessToken ?? undefined });
 }

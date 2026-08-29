@@ -2,6 +2,7 @@ export * from "./activity";
 export * from "./auth";
 export * from "./forum";
 export * from "./group";
+export * from "./learndash";
 export * from "./media";
 export * from "./member";
 export * from "./message";

@@ -149,10 +149,37 @@ a couple of colleagues.
 
 ---
 
+## Phase 7 — LearnDash courses
+
+**Goal:** browse and take courses, matching what BuddyBoss's own official app
+already does for LearnDash — this project's `buddyboss-app/learndash/v1` REST
+API is the same one that app consumes.
+
+- Course catalog and detail (cover, description, lesson list)
+- Enrollment (free/open courses only — no purchase flow, see Out of scope)
+- Lesson and topic content pages
+- Mark-complete/incomplete, respecting the course's own sequential-progress
+  rules (confirmed live: LearnDash rejects an out-of-order completion with a
+  real error message, surfaced as-is rather than papered over)
+
+**Done when:** a member can browse the catalog, enroll in a free course, read
+through its lessons/topics in order, and see their own progress update.
+
+Quizzes, assignments (file uploads), and certificates are a further slice —
+see Out of scope.
+
+---
+
 ## Out of scope for now
 
-Real-time sockets, LearnDash/Tutor LMS integration, gamification,
-moderation tools, email invites, SEO work.
+Real-time sockets, gamification, moderation tools, email invites, SEO work.
+
+LearnDash: quizzes (multi-step navigation, scoring, leaderboard),
+assignments (file uploads), and certificates — Phase 7 covers courses,
+lessons/topics, and completion tracking only. Paid/subscription course
+purchase flows are also out of scope; only free/open enrollment is
+supported. Tutor LMS integration was never pursued — this site only runs
+LearnDash.
 
 Media uploads on activity posts were brought forward into Phase 4 (single
 attachment per post only — see DECISIONS.md for why multiple attachments
