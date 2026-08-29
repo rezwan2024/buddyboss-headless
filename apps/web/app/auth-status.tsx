@@ -36,9 +36,14 @@ export default function AuthStatus() {
 
   if (!user) {
     return (
-      <Link href="/login" className="hover:text-black dark:hover:text-white">
-        Log in
-      </Link>
+      <div className="flex items-center gap-3">
+        <Link href="/login" className="hover:text-black dark:hover:text-white">
+          Log in
+        </Link>
+        <Link href="/signup" className="hover:text-black dark:hover:text-white">
+          Sign up
+        </Link>
+      </div>
     );
   }
 

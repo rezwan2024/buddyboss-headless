@@ -9,5 +9,6 @@ export * from "./members";
 export * from "./messages";
 export * from "./notifications";
 export * from "./posts";
+export * from "./signup";
 export * from "./site";
 export * from "./xprofile";

@@ -23,6 +23,38 @@ Format:
 
 ---
 
+## 2026-08-29 — Sign-up uses BuddyBoss's own `/signup` REST API, not a custom endpoint
+
+**Decision:** `packages/api-client/src/signup.ts` calls
+`POST /buddyboss/v1/signup` directly. No addition to `wp/plugin-headless`
+— the only custom PHP in this project stays the JWT auth plugin, per
+`CLAUDE.md`'s existing rule.
+**Why:** checked first rather than assuming a custom endpoint was needed
+(WP core's own `POST /wp/v2/users` requires `create_users`, admin-only,
+which is what made a custom endpoint look necessary at a glance) —
+BuddyBoss ships its own public signup REST API, and this install already
+has `users_can_register` enabled. Three things about it were confirmed
+live, not from docs, because a wrong guess here would have shipped a
+broken form:
+1. **Success is a bare 302 redirect, not a JSON body.** `signUp()` uses
+   `redirect: "manual"` specifically so the underlying `fetch()` never
+   follows it — that redirect target is the raw WordPress homepage, and
+   this project's browser must never receive or render raw WP HTML.
+2. **`field_3` ("Nickname" in BuddyBoss's own UI) is the actual
+   `user_login`.** Confirmed by inspecting the created user's row
+   directly, not by trusting the field's label — the frontend labels
+   this input "Username" since that's what it actually controls.
+3. **No email activation step on this install** — a fresh signup can log
+   in immediately, confirmed by doing exactly that right after creating
+   a test account. `signupAction` chains straight into the existing
+   `login()` call rather than sending a new user to a separate login
+   screen.
+**Alternatives:** a custom `headless-auth` registration endpoint that
+wraps `wp_insert_user()` — rejected once the BuddyBoss endpoint was
+confirmed to already do everything needed (xprofile fields, uniqueness
+checks, immediate usability), which would have made a custom endpoint
+pure duplicated logic with none of BuddyBoss's own validation for free.
+
 ## 2026-08-28 — Home page sidebars scoped to real features, not a literal reference clone
 
 **Decision:** The activity home page's new left/right sidebars (matching

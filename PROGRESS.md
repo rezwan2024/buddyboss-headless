@@ -14,11 +14,9 @@ reasoning in `DECISIONS.md`, rules in `CLAUDE.md`.
 boundaries/404/500 pages, cookie-flags-per-environment review, Lighthouse
 pass, rate limiting on login, cache revalidation webhook — all shipped
 and verified live. Post-Phase-6: user-requested fixes/polish, taken one
-at a time (see session log) — header layout, site-wide font size, and a
-3-column dashboard layout for the activity home page (left sidebar:
-latest discussions + the user's groups; right sidebar: profile
-completeness + latest updates), matching a reference BuddyBoss community
-site's design.
+at a time (see session log) — header layout, site-wide font size, a
+3-column dashboard layout for the activity home page, icon-only header
+nav for messages/notifications, and self-service sign-up.
 **Next task:** none currently planned — awaiting the next item in that
 list from the user.
 
@@ -98,6 +96,74 @@ this list whenever a new one is introduced.
 ---
 
 ## Session log
+
+### 2026-08-29 — Self-service sign-up
+
+- User reported sign-up was missing entirely — only login existed.
+  Researched rather than assuming a custom endpoint was needed: BuddyBoss
+  already exposes a full signup REST API (`/buddyboss/v1/signup` +
+  `/signup/form`), and `users_can_register`/`blog_public` are both
+  already enabled on the live site — matches `CLAUDE.md`'s "use
+  BuddyBoss's shipped REST API" rule, no plugin change required.
+- Confirmed live via curl before writing any code: `/signup/form` lists
+  the actual required fields for this install (email, password, First
+  Name, Last Name, Nickname); a real test signup showed the **response
+  is a bare 302 redirect, not JSON** (`packages/api-client/src/signup.ts`
+  uses `redirect: "manual"` so `wpFetch` never follows it into raw WP
+  HTML); a validation failure (duplicate email/nickname) is a real 400
+  with per-field messages; **`field_3` (Nickname) is the actual
+  `user_login`** — confirmed by checking the created user in the
+  database, not by guessing from the field's label. The UI labels this
+  field "Username" (what it actually does), not "Nickname" (BuddyBoss's
+  internal label).
+- Also confirmed the created account is immediately usable — no email
+  activation step on this install — by logging in with it right after
+  creation. `signupAction` (`auth-actions.ts`) chains straight from
+  `signUp()` into the existing `login()` call and sets session cookies,
+  so a new user lands on `/` already signed in rather than being sent to
+  a separate login screen.
+- New `/signup` route (`signup/page.tsx` + `signup-form.tsx`, same
+  `useActionState` pattern as the login form) with per-field error
+  display under each input. Reused `lib/rate-limit.ts` for signup
+  spam, keyed separately from login's (`signup:${ip}` vs `login:${ip}`)
+  so failed attempts at one don't lock out the other. Added "Sign up" /
+  "Log in" cross-links on both pages, and a "Sign up" link next to
+  "Log in" in the header for logged-out visitors.
+- Verified live via Playwright MCP: a full real signup (unique
+  email/username) correctly created the account, auto-logged in, landed
+  on `/` with the new name in the account menu; a duplicate-credentials
+  resubmit correctly showed "Nickname has already been taken." and
+  "Sorry, that email address is already used!" under the right fields.
+  Test accounts deleted afterward (`wp user delete`) — confirmed no
+  orphaned `bp_activity` rows this time (BuddyBoss auto-posts a "became a
+  registered member" activity per signup; `wp user delete` cascaded it
+  correctly, unlike the earlier forum-post gotcha).
+- `pnpm verify` (24/25 e2e with `--workers=1` — the one failure is the
+  same pre-existing locator fragility documented earlier, unrelated) and
+  `pnpm build` pass; `/signup` is statically rendered.
+- **What to look at:** `/signup` — fill it in, or try submitting an
+  existing email/username to see the field-level errors.
+
+### 2026-08-28 — Header: icon-only messages/notifications, grouped with account menu
+
+- User asked to replace the "Messages"/"Notifications" text nav links
+  with icons, grouped beside the account menu on the header's right edge
+  in order: notifications, messages, profile.
+- `messages-nav-link.tsx`/`notifications-nav-link.tsx` now render an
+  icon-only button (chat bubble; bell with the unread badge overlaid on
+  the icon instead of trailing it), matching `<AuthStatus>`'s existing
+  account-icon button style. Moved out of the centered nav `<div>` in
+  `site-header.tsx` into the same right-edge group as the account menu.
+- Fixed a real, if minor, bug this surfaced: `activity-feed.spec.ts`'s
+  scrolling test asserted on unscoped `page.locator("li")` counts —
+  scoped to `main li` (the sidebar work two entries below already needed
+  this same fix for its own `<li>`s; this was the same class of issue,
+  different trigger).
+- `pnpm verify` (`--workers=1`) and `pnpm build` pass. Verified live via
+  Playwright MCP: icons render in the right order, notification badge
+  still shows, messages link still navigates correctly.
+- **What to look at:** the header's top-right corner — bell, chat
+  bubble, then the account avatar, in that order.
 
 ### 2026-08-28 — Activity home page: 3-column dashboard layout
 
