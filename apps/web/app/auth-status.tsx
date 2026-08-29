@@ -3,7 +3,7 @@
 import { useSessionUser } from "@/lib/use-session-user";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { logoutAction } from "./auth-actions";
 
 export default function AuthStatus() {
@@ -15,6 +15,18 @@ export default function AuthStatus() {
   const user = loggedOut ? null : cookieUser;
   const [isLoggingOut, startLogout] = useTransition();
   const router = useRouter();
+
+  // `loggedOut` must not outlive the session it was set for — without
+  // this, logging out and then logging back in as a *different* account
+  // (a real navigation, so useSessionUser's own cookie re-check correctly
+  // sees the new user) still rendered the logged-out state until a full
+  // page reload remounted this component and reset `loggedOut` to its
+  // initial `false`. Bug report: "logout then login as another account —
+  // still shows Log in until I reload manually." Whenever the cookie
+  // reports a real user again, this flag's job is done.
+  useEffect(() => {
+    if (cookieUser) setLoggedOut(false);
+  }, [cookieUser]);
 
   function handleLogout() {
     // Calling the action directly (not via a plain `<form action>`) so we

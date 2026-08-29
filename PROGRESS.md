@@ -97,6 +97,35 @@ this list whenever a new one is introduced.
 
 ## Session log
 
+### 2026-08-29 — Fix: header stuck showing "logged out" after logout then a different login
+
+- User reported: sign up (auto-login worked), log out (worked), then log
+  in as a *different* account — header still showed "Log in"/"Sign up"
+  until a manual page reload.
+- Real, pre-existing bug in `<AuthStatus>`, unrelated to the signup code
+  itself — signup was just the first natural way for the user to hit
+  this exact sequence (create an account, log out of it, log into an
+  existing one). Root cause: `handleLogout()` sets a local `loggedOut`
+  boolean to force the logged-out view (since logout doesn't navigate,
+  so `useSessionUser()`'s pathname-triggered cookie re-check never
+  fires) — but nothing ever set it back to `false`. A subsequent login
+  *does* navigate, so the cookie hook correctly picked up the new user,
+  but `user = loggedOut ? null : cookieUser` kept forcing `null` forever,
+  because `loggedOut` only resets on a full remount.
+- Fix: a `useEffect` that clears `loggedOut` whenever the cookie hook
+  reports a real user again. Reproduced the exact bug live first (logged
+  in, logged out via direct DOM `.click()` on the hover-only menu — real
+  mouse hover doesn't simulate cleanly through Playwright's MCP tools for
+  a CSS `group-hover` dropdown, so the fix was verified by invoking the
+  actual handler, not by fighting the hover interaction), confirmed the
+  header stayed on "Log in" after logging into a second account, applied
+  the fix, and reproduced the same sequence again — header now updates
+  immediately, no reload needed.
+- `pnpm verify` (25/25 e2e, `--workers=1`, clean/fast — no hint of the
+  usual WP-backend-load flakiness this run) and `pnpm build` pass.
+- **What to look at:** log out, then log in as a different account (or
+  just log in again) — the account menu should appear immediately.
+
 ### 2026-08-29 — Self-service sign-up
 
 - User reported sign-up was missing entirely — only login existed.
