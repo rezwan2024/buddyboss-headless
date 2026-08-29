@@ -219,10 +219,23 @@ this list whenever a new one is introduced.
   its guardrails: a non-`WP_URL` target and a `WP_URL` path outside
   `bb-media-preview` both correctly 403; the real URL correctly 200s.
   `pnpm verify` (25/25 e2e this run, `--workers=1`) and `pnpm build` pass.
-- **Not yet re-verified against the live site as of writing this entry** —
-  next step is redeploy + re-alias (see the gotcha note above) and a live
-  Playwright check of the newsfeed/group/profile feeds for broken images
-  and console errors.
+- Redeployed, re-aliased, and verified live via Playwright: `/`, a member
+  profile with 5 real photo/screenshot posts, and a group page all show
+  zero console errors, and every activity image request now goes through
+  `/_next/image?url=%2Fapi%2Fmedia-proxy...` and returns 200. One apparent
+  gray/blank image on first load turned out to be a lazy-loading timing
+  artifact in a `fullPage` screenshot taken immediately after navigation
+  (Next's `<Image>` defers off-screen loads) — confirmed not a real bug by
+  scrolling to trigger it and re-screenshotting, which showed the correct
+  image.
+- **What to look at:** the newsfeed, any group with photo/video posts
+  (e.g. a member's own profile with several image posts, like
+  `/members/26`), and a group page — images should load reliably now,
+  and the feed itself shouldn't crash with "Couldn't load the activity
+  feed." This can't be guaranteed 100% eliminated given the underlying
+  cause is the shared dev host's own performance under load (not
+  something this app fully controls), but it should be substantially
+  less frequent — reload a few times if you want to stress it further.
 
 ### 2026-08-29 — Phase 7: LearnDash courses (catalog, enrollment, lessons/topics, completion)
 
