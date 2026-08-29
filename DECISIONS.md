@@ -23,6 +23,40 @@ Format:
 
 ---
 
+## 2026-08-29 — `wp-fetch.ts`'s new read timeout must never apply to writes/uploads
+
+**Decision:** `fetchWithRetry`'s 10s `AbortSignal.timeout` only applies when
+the method is retryable (`GET`/`HEAD`). `POST`/`PUT`/`PATCH`/`DELETE` —
+including every upload (`uploadFile`, `uploadDocument`) — get the caller's
+own `signal` (usually none) and no artificial cutoff at all, exactly like
+before this project ever added a timeout.
+**Why:** the timeout added in the same-day media-proxy entry below was
+written as unconditional (`init.signal ?? AbortSignal.timeout(TIMEOUT_MS)`
+applied to every request regardless of method) and shipped that way — a
+real regression, caught live within the hour by the user reporting a
+previously-fine image upload and video upload both suddenly failing.
+Measured the actual upload behavior against this host directly rather than
+guessing at the cause: an 8MB file takes ~15s to upload, 15MB ~26s, 25MB
+~35s — all genuinely succeed given enough time, confirmed via curl with no
+artificial limit, and there's no real server-side size cap either (an
+`upload_max_filesize=2M` reported by `php.ini` turned out not to be
+enforced in practice — a 25MB upload went through fine). So the 10s
+timeout was the entire cause: it aborted any upload past roughly 4-5MB,
+which a real photo (especially a densely-detailed poster-style image) or
+any video clears easily. A network-level abort from our own client-side
+timeout is indistinguishable from a real host failure to the caller, which
+is what made this look like the same class of bug being fixed rather than
+a new one introduced by the fix itself.
+**Alternatives:** a much longer timeout applied to every method (e.g. 60s)
+— rejected; a same-origin arbitrary cutoff on an upload can't be sized
+correctly for "however large a legitimate file/however slow the network
+genuinely is," and the point of a timeout here was specifically to make a
+*read* fail fast enough to retry (see the immediately-following entry) —
+that reasoning has never applied to writes, which is why they were
+correctly excluded from `RETRYABLE_METHODS` in the first place. The fix is
+simply to gate the new timeout behind the exact same `retryable` check that
+already existed for attempt count.
+
 ## 2026-08-29 — Activity photo/video thumbnails proxied through `/api/media-proxy` for retry
 
 **Decision:** `activity-feed-list.tsx`'s photo/video thumbnails route through

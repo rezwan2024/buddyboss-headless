@@ -236,6 +236,22 @@ this list whenever a new one is introduced.
   cause is the shared dev host's own performance under load (not
   something this app fully controls), but it should be substantially
   less frequent — reload a few times if you want to stress it further.
+- **Third follow-up, same session — real regression from the fix above:**
+  within the hour, user reported a large image (a detailed poster-style
+  graphic) and a video both failing to upload — something that had been
+  working before. Root cause: the 10s read timeout just added to
+  `wp-fetch.ts` had been written unconditionally, so it also aborted
+  uploads, not just the GET/HEAD reads it was meant for. Measured the
+  actual host behavior directly instead of guessing a safe cutoff: an 8MB
+  upload takes ~15s, 15MB ~26s, 25MB ~35s, all of which genuinely succeed
+  given enough time (confirmed via curl, no artificial limit) — there's
+  also no real server-side size cap in practice despite what `php.ini`
+  reports. Fixed by gating the timeout behind the same `retryable`
+  (GET/HEAD-only) check attempt-count already used, restoring uploads to
+  their pre-existing no-timeout behavior. Full writeup in `DECISIONS.md`.
+- `pnpm verify`'s non-e2e portions (typecheck/lint/unit) and `pnpm build`
+  pass; redeploy + live re-verification of an actual large upload is the
+  immediate next step before considering this closed.
 
 ### 2026-08-29 — Phase 7: LearnDash courses (catalog, enrollment, lessons/topics, completion)
 

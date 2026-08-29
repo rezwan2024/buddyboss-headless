@@ -51,19 +51,31 @@ const RETRYABLE_METHODS = new Set(["GET", "HEAD"]);
 // Bumped from a single retry (2 attempts total) to 2 retries (3 total) after
 // a real "Couldn't load the activity feed" crash (React error #441)
 // recurred live — a single retry isn't always enough under this shared dev
-// host's own documented concurrency ceiling (see DECISIONS.md). A read is
-// also given an upper-bound timeout so a hang fails fast enough to retry
-// instead of leaving the caller waiting indefinitely.
+// host's own documented concurrency ceiling (see DECISIONS.md). A GET/HEAD
+// read is also given an upper-bound timeout so a hang fails fast enough to
+// retry instead of leaving the caller waiting indefinitely.
+//
+// This timeout must NEVER apply to non-retryable methods (POST/PUT/PATCH/
+// DELETE) — confirmed live this broke real image/video uploads: a large
+// file genuinely takes longer than 10s to upload to this project's
+// measurably slow shared dev host (see the media-proxy entry in
+// DECISIONS.md), and aborting a write mid-upload is strictly worse than
+// waiting, since it can't be safely retried anyway (RETRYABLE_METHODS above)
+// and wastes the attempt entirely. An earlier version of this function
+// applied the timeout unconditionally and had to be reverted for exactly
+// this reason — don't reintroduce it.
 const MAX_ATTEMPTS = 3;
 const TIMEOUT_MS = 10000;
 
 async function fetchWithRetry(url: string, init: RequestInit): Promise<Response> {
   const method = (init.method ?? "GET").toUpperCase();
-  const attempts = RETRYABLE_METHODS.has(method) ? MAX_ATTEMPTS : 1;
+  const retryable = RETRYABLE_METHODS.has(method);
+  const attempts = retryable ? MAX_ATTEMPTS : 1;
   let lastError: unknown;
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
-      return await fetch(url, { ...init, signal: init.signal ?? AbortSignal.timeout(TIMEOUT_MS) });
+      const signal = retryable ? (init.signal ?? AbortSignal.timeout(TIMEOUT_MS)) : init.signal;
+      return await fetch(url, { ...init, signal });
     } catch (err) {
       lastError = err;
     }
