@@ -70,7 +70,13 @@ export async function postActivityAction(
     } else {
       await createActivity(content, accessToken, groupId);
     }
-  } catch {
+  } catch (err) {
+    // Logged, not swallowed — this generic message is all the composer
+    // shows the user (WordPress errors can leak internal detail), but a
+    // caught-and-silent failure here is undebuggable from Vercel's own
+    // logs otherwise, which mattered in practice tracking down a real
+    // upload-size issue (see DECISIONS.md).
+    console.error("postActivityAction failed", err);
     return { error: "Couldn't post that — try again." };
   }
 
