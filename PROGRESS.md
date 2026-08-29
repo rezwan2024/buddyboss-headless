@@ -274,9 +274,29 @@ this list whenever a new one is introduced.
   video-generation tool available in this environment), but the composer
   posts it through the identical Server-Action-body code path — the fix
   is content-type-agnostic, so it should apply the same way.
-- **Not yet redeployed to buddyboss.vercel.app as of writing this
-  entry** — next step is push + redeploy + re-alias, then a live
-  Playwright re-check of a large upload.
+- Redeployed, re-aliased. Live re-check found the fix works but doesn't
+  fully solve the original report: a real 3.5MB photo now uploads
+  successfully (previously would have hit the 1MB Next.js default), but a
+  real 4.7MB photo still 413s — this time from **Vercel's own platform**
+  (a ~4.5MB serverless function request-body limit, confirmed via `vercel
+  logs` showing the request never reached our Server Action at all, and
+  by reproducing the exact same file locally via `next start` where it
+  succeeds with no such platform in front of it). This is a harder
+  ceiling than anything `next.config.ts` can raise. Full writeup,
+  including a red herring from testing with synthetic (invalid) JPEG
+  files before switching to real ones, in `DECISIONS.md`.
+- Also added logging to `postActivityAction`'s previously-silent catch
+  block (`console.error`), needed to diagnose this — it was returning
+  the same generic "Couldn't post that" for every failure reason with
+  nothing in Vercel's logs to tell them apart.
+- **Net effect of this session's upload-fix work:** ordinary phone
+  photos (roughly up to ~4MB) now upload correctly, which likely covers
+  most real usage. Poster-quality images and video clips over ~4.5MB
+  still fail, now with a platform-level 413 that our own error handling
+  never gets a chance to show a friendly message for. Closing this
+  fully needs a decision on scope (a same-day clear-error fix vs. a
+  proper chunked-upload feature) — see `DECISIONS.md`'s "Alternatives
+  not yet chosen between."
 
 ### 2026-08-29 — Phase 7: LearnDash courses (catalog, enrollment, lessons/topics, completion)
 

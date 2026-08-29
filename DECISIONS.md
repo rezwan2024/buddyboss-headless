@@ -23,6 +23,54 @@ Format:
 
 ---
 
+## 2026-08-29 — Vercel's own ~4.5MB serverless function payload limit is a harder ceiling than anything `next.config.ts` controls
+
+**Decision:** No code change yet — documenting a confirmed platform
+constraint before deciding how (or whether) to work around it.
+**Why it matters:** after fixing the two Next.js-level body-size limits
+(previous entry), a real, valid ~4.7MB JPEG still failed on
+`buddyboss.vercel.app` with a 413 — but the *identical* file succeeded
+against a local production build (`next start`) on the same machine, same
+`next.config.ts`. Binary-searched the real boundary with genuinely valid
+JPEGs (invalid/corrupt test files were briefly a red herring — see below):
+a real 3.5MB photo succeeds in production; a real 4.7MB photo 413s before
+`postActivityAction` ever runs (confirmed via `vercel logs` — no
+`postActivityAction failed` log line at all for the failing case, meaning
+the request never reached our Server Action). This matches Vercel's own
+documented ~4.5MB request-body limit for standard Node.js Serverless
+Functions — a platform-level cap enforced *before* the request reaches
+Next.js, which `serverActions.bodySizeLimit`/`proxyClientMaxBodySize`
+cannot raise no matter how high they're set (confirmed: both were already
+`"20mb"` when this failed). `next start` doesn't reproduce this because
+there is no such platform in front of a local dev/prod server.
+**Practical effect:** the previous same-day fix (raising Next's own limits
+from 1MB/10MB) was still worth doing — it's what makes anything between
+~1MB and ~4.5MB work at all now, which is most ordinary phone photos — but
+it does not fully solve "upload a large/poster-quality image or any real
+video," which was the original report. A real video clip of any
+meaningful length routinely exceeds 4.5MB.
+**Also found chasing this down:** a synthetic test file built from just a
+JPEG magic-byte header plus random bytes (used for the earlier size
+threshold tests) is not a valid image — WordPress correctly rejects it
+during thumbnail generation (`ImagickException: negative or zero image
+size`, confirmed via a temporary `WP_DEBUG_LOG` enable/disable on the live
+site) with a real 500, unrelated to size. Cost some time chasing a false
+lead before switching to genuinely valid JPEGs (built via `sips` from raw
+pixel data) for the real threshold search — worth remembering this
+project's own "verify against the live API, don't assume a synthetic
+payload behaves like a real one" habit applies to test *files*, not just
+test *requests*.
+**Alternatives not yet chosen between** (this needs a decision, not just a
+fix, given the effort/scope difference): (1) enforce a clear client-side
+file-size limit in the composer with a real, human-readable error instead
+of letting a >4.5MB file hit an unhandled platform 413 (small, scoped,
+but doesn't add capability — it just fails honestly instead of
+confusingly); (2) a chunked/resumable upload architecture that stays
+within the BFF pattern (client uploads in <4.5MB pieces to a Route
+Handler, which reassembles and forwards to WordPress) — actually solves
+the capability gap for real photos/videos, but is a real feature, not a
+bug fix, and needs its own design pass.
+
 ## 2026-08-29 — Two independent Next.js body-size limits were blocking real uploads
 
 **Decision:** `next.config.ts` sets `experimental.serverActions.bodySizeLimit`
