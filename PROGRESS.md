@@ -293,10 +293,13 @@ this list whenever a new one is introduced.
   photos (roughly up to ~4MB) now upload correctly, which likely covers
   most real usage. Poster-quality images and video clips over ~4.5MB
   still fail, now with a platform-level 413 that our own error handling
-  never gets a chance to show a friendly message for. Closing this
-  fully needs a decision on scope (a same-day clear-error fix vs. a
-  proper chunked-upload feature) — see `DECISIONS.md`'s "Alternatives
-  not yet chosen between."
+  never gets a chance to show a friendly message for. Asked the user
+  whether to add a clear client-side size-limit error or build a full
+  chunked-upload feature to close this gap — **they chose to leave it
+  as-is for now**, since the common case (ordinary phone photos) already
+  works. Not tracked as a bug to fix later by default; revisit only if
+  large uploads become a real, recurring need (see `DECISIONS.md` for
+  where to pick this back up).
 
 ### 2026-08-29 — Phase 7: LearnDash courses (catalog, enrollment, lessons/topics, completion)
 

@@ -60,16 +60,21 @@ pixel data) for the real threshold search — worth remembering this
 project's own "verify against the live API, don't assume a synthetic
 payload behaves like a real one" habit applies to test *files*, not just
 test *requests*.
-**Alternatives not yet chosen between** (this needs a decision, not just a
-fix, given the effort/scope difference): (1) enforce a clear client-side
-file-size limit in the composer with a real, human-readable error instead
-of letting a >4.5MB file hit an unhandled platform 413 (small, scoped,
-but doesn't add capability — it just fails honestly instead of
-confusingly); (2) a chunked/resumable upload architecture that stays
-within the BFF pattern (client uploads in <4.5MB pieces to a Route
-Handler, which reassembles and forwards to WordPress) — actually solves
-the capability gap for real photos/videos, but is a real feature, not a
-bug fix, and needs its own design pass.
+**Alternatives considered, user chose to leave it:** (1) a clear
+client-side file-size limit in the composer with a real, human-readable
+error instead of an unhandled platform 413 (small, scoped, fails
+honestly instead of confusingly, but adds no capability); (2) a
+chunked/resumable upload architecture staying within the BFF pattern
+(client uploads in <4.5MB pieces to a Route Handler, reassembled and
+forwarded to WordPress) — would actually close the gap for real
+photos/videos, but is a real feature needing its own design pass, not a
+bug fix. Asked the user directly rather than picking one unilaterally,
+given the effort/capability tradeoff; they chose to leave the limit as-is
+for now, since ordinary phone photos (the common case) already work
+after the same-day fixes above. Revisit if a >4.5MB upload becomes a
+real, recurring need — start from the chunked-upload option above rather
+than re-investigating the root cause, which is already fully diagnosed
+here.
 
 ## 2026-08-29 — Two independent Next.js body-size limits were blocking real uploads
 
