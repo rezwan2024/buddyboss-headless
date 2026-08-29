@@ -196,6 +196,33 @@ this list whenever a new one is introduced.
   gone after redeploying with it; `/members`, `/members/[id]`, and `/`
   never showed it (the directory page is ISR-static, so this only
   reliably surfaces on a route that's genuinely re-rendered per request).
+- **Second follow-up, same session:** user reported intermittent broken
+  images across the newsfeed/group feed/member profile feed, plus a
+  recurrence of `Minified React error #441` ("Couldn't load the activity
+  feed"). Root cause confirmed live, not guessed: BuddyBoss's activity
+  photo/video thumbnail URLs (`bb-media-preview/...`) take ~1.5-2s **per
+  request even in isolation** — served through a full WP bootstrap, not a
+  static file — which is slow enough on this project's already-documented
+  load-sensitive shared dev host to intermittently exceed Next's
+  image-optimizer's fetch, which (unlike our own `wp-fetch.ts`) has no
+  retry at all. Fixed with a new `/api/media-proxy` Route Handler that
+  retries those specific image URLs (up to 3 attempts), and bumped
+  `wp-fetch.ts`'s own JSON retry from 1 to 2 retries with an explicit
+  timeout per attempt. Full writeup, including the SSRF-safety scoping and
+  a real Next-16 `localPatterns` config requirement hit along the way, in
+  `DECISIONS.md`.
+- Verified locally via a real production build (`next start` on a spare
+  port — didn't touch the user's running dev server) and Playwright:
+  confirmed the exact error reproduced before the `next.config.ts` fix
+  (`images.localPatterns` needed for a local image src with a query
+  string), gone after. Manually curled the new route directly to confirm
+  its guardrails: a non-`WP_URL` target and a `WP_URL` path outside
+  `bb-media-preview` both correctly 403; the real URL correctly 200s.
+  `pnpm verify` (25/25 e2e this run, `--workers=1`) and `pnpm build` pass.
+- **Not yet re-verified against the live site as of writing this entry** —
+  next step is redeploy + re-alias (see the gotcha note above) and a live
+  Playwright check of the newsfeed/group/profile feeds for broken images
+  and console errors.
 
 ### 2026-08-29 — Phase 7: LearnDash courses (catalog, enrollment, lessons/topics, completion)
 

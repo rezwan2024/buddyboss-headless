@@ -1,6 +1,7 @@
 "use client";
 
 import { decodeEntities, parseReactedNames, timeAgo } from "@/lib/format";
+import { mediaProxyUrl } from "@/lib/media-proxy-url";
 import { useSessionUser } from "@/lib/use-session-user";
 import type { Activity } from "@buddyboss-headless/types";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
@@ -152,7 +153,9 @@ function ActivityItem({ activity, isLoggedIn }: { activity: Activity; isLoggedIn
                   className="relative aspect-video overflow-hidden rounded bg-black/5 dark:bg-white/5"
                 >
                   <Image
-                    src={media.attachment_data.activity_thumb || media.attachment_data.full}
+                    src={mediaProxyUrl(
+                      media.attachment_data.activity_thumb || media.attachment_data.full,
+                    )}
                     alt=""
                     fill
                     sizes="(max-width: 672px) 100vw, 672px"
@@ -170,7 +173,9 @@ function ActivityItem({ activity, isLoggedIn }: { activity: Activity; isLoggedIn
                   className="relative aspect-video overflow-hidden rounded bg-black/5 dark:bg-white/5"
                 >
                   <Image
-                    src={video.attachment_data.activity_thumb || video.attachment_data.full}
+                    src={mediaProxyUrl(
+                      video.attachment_data.activity_thumb || video.attachment_data.full,
+                    )}
                     alt=""
                     fill
                     sizes="(max-width: 672px) 100vw, 672px"

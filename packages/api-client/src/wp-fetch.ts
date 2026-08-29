@@ -48,15 +48,27 @@ function baseUrl(): string {
 // methods: retrying a POST could double-create if the request actually
 // reached WordPress and only the response was lost in transit.
 const RETRYABLE_METHODS = new Set(["GET", "HEAD"]);
+// Bumped from a single retry (2 attempts total) to 2 retries (3 total) after
+// a real "Couldn't load the activity feed" crash (React error #441)
+// recurred live — a single retry isn't always enough under this shared dev
+// host's own documented concurrency ceiling (see DECISIONS.md). A read is
+// also given an upper-bound timeout so a hang fails fast enough to retry
+// instead of leaving the caller waiting indefinitely.
+const MAX_ATTEMPTS = 3;
+const TIMEOUT_MS = 10000;
 
 async function fetchWithRetry(url: string, init: RequestInit): Promise<Response> {
   const method = (init.method ?? "GET").toUpperCase();
-  try {
-    return await fetch(url, init);
-  } catch (err) {
-    if (!RETRYABLE_METHODS.has(method)) throw err;
-    return fetch(url, init);
+  const attempts = RETRYABLE_METHODS.has(method) ? MAX_ATTEMPTS : 1;
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      return await fetch(url, { ...init, signal: init.signal ?? AbortSignal.timeout(TIMEOUT_MS) });
+    } catch (err) {
+      lastError = err;
+    }
   }
+  throw lastError;
 }
 
 /**

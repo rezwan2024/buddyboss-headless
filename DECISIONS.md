@@ -23,6 +23,50 @@ Format:
 
 ---
 
+## 2026-08-29 — Activity photo/video thumbnails proxied through `/api/media-proxy` for retry
+
+**Decision:** `activity-feed-list.tsx`'s photo/video thumbnails route through
+a new `apps/web/app/api/media-proxy` Route Handler (`mediaProxyUrl()`,
+`lib/media-proxy-url.ts`) instead of pointing `next/image` at BuddyBoss's
+`bb-media-preview` URLs directly. The proxy retries up to 3 attempts (10s
+timeout each) before giving up; `wpFetch`'s own retry (`packages/api-client/
+src/wp-fetch.ts`) was also bumped from 1 retry to 2 (3 attempts total), plus
+an explicit 10s timeout on every attempt.
+**Why:** user reported intermittent broken images across the newsfeed,
+group feed, and member profile feed, plus a recurrence of the
+already-documented `Minified React error #441` ("Couldn't load the
+activity feed"). Confirmed live rather than assumed: a `bb-media-preview`
+URL (confirmed real and correctly authorized — not a permission problem
+despite the misleading `forbidden_<id>` looking token embedded in it,
+which is just BuddyBoss's internal naming for this signed/obfuscated URL
+scheme) takes **~1.5-2s per request even with zero concurrent load**,
+because BuddyBoss serves it through a full WordPress bootstrap on every
+call rather than a static file. That's slow enough, on this project's
+already-documented load-sensitive shared dev host (see the `ECONNRESET`/
+concurrency-ceiling entries elsewhere in this file), to intermittently
+exceed Next's image-optimizer's own fetch — which, unlike `wp-fetch.ts`'s
+`fetchWithRetry`, has **no retry of its own at all**. A single slow/failed
+fetch there just renders as a broken `<img>`, with nothing to catch it.
+Routing through our own proxy first gives these specific images the same
+retry safety net our JSON reads already have. Scoped narrowly (only
+`${WP_URL}/bb-media-preview/...` is allowed through the proxy, checked
+server-side, both to avoid an open image-proxy/SSRF surface and because
+avatars/covers/plain uploads are already fast static files that don't
+need this) rather than proxying every image on the site.
+**Also required:** `next.config.ts` needed a new `images.localPatterns`
+entry for `/api/media-proxy` — this Next.js version (see `apps/web/
+AGENTS.md`'s standing warning about breaking changes vs. training data)
+400s any local image `src` carrying a query string unless its pathname is
+explicitly allowlisted; confirmed live via the exact error message before
+adding it.
+**Alternatives:** proxying every image through this route — rejected,
+avatars/covers already load fast and reliably (confirmed via direct
+timing) and don't need the extra hop. A custom `next/image` `loader`
+instead of a Route Handler — rejected as a bigger, less-scoped change for
+the same outcome; a Route Handler is also directly testable/curlable on
+its own, which mattered here given how much of this investigation
+depended on measuring the real host's behavior directly.
+
 ## 2026-08-29 — `member-card.tsx` needed the same `suppressHydrationWarning` fix as the Lighthouse pass
 
 **Decision:** `member-card.tsx`'s `Active {timeAgo(...)}` text is now
