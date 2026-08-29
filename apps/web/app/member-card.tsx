@@ -22,9 +22,17 @@ export default function MemberCard({ member }: { member: Member }) {
             {decodeEntities(member.name)}
           </p>
           <p className="truncate text-xs text-black/60 dark:text-white/60">
-            {member.last_activity
-              ? `Active ${timeAgo(member.last_activity)}`
-              : `@${member.user_login}`}
+            {member.last_activity ? (
+              // timeAgo() reads Date.now() — the server-rendered and hydration-time
+              // strings can legitimately differ, which React treats as a real
+              // mismatch unless told otherwise (see activity-feed-list.tsx for the
+              // full reasoning). This component is used from client components
+              // (GroupMembers, the members directory list), so it goes through a
+              // real hydration pass, unlike a plain Server Component.
+              <span suppressHydrationWarning>Active {timeAgo(member.last_activity)}</span>
+            ) : (
+              `@${member.user_login}`
+            )}
           </p>
         </div>
       </Link>

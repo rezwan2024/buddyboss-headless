@@ -175,6 +175,27 @@ this list whenever a new one is introduced.
   hidden when viewing someone else's. Also: there's one leftover test
   document post on group 9 from this session's live API verification
   (see above) worth deleting when convenient.
+- **Follow-up same session:** user reported the feed/composer weren't
+  showing — turned out nothing had been pushed yet, so `buddyboss.vercel.app`
+  was still serving the pre-change build (this project auto-deploys on
+  push to `main`, but nothing had asked for a push until this point).
+  Committed, pushed, and re-ran `vercel alias set` (the alias doesn't
+  auto-follow new deploys — see the gotcha note above). Live verification
+  after redeploying surfaced a **real, if pre-existing, bug**: a
+  `Minified React error #418` hydration mismatch on `/groups/[id]`,
+  confirmed live via Playwright against production and reproducible every
+  load — not something this session's own change caused, since
+  `member-card.tsx`'s `timeAgo()` call already existed before this work,
+  but never surfaced because it hadn't been checked on a real dynamic
+  route's console before. Same root cause as the 2026-08-28 Lighthouse
+  pass's fix (`timeAgo()` reads `Date.now()`, which can legitimately
+  differ between SSR and hydration) — that pass's fix list just didn't
+  include `member-card.tsx`. Fixed the same established way
+  (`suppressHydrationWarning` on the one text-bearing element). Confirmed
+  live: the error reproduced consistently on `/groups/9` before the fix,
+  gone after redeploying with it; `/members`, `/members/[id]`, and `/`
+  never showed it (the directory page is ISR-static, so this only
+  reliably surfaces on a route that's genuinely re-rendered per request).
 
 ### 2026-08-29 — Phase 7: LearnDash courses (catalog, enrollment, lessons/topics, completion)
 

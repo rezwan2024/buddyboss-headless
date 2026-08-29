@@ -23,6 +23,29 @@ Format:
 
 ---
 
+## 2026-08-29 — `member-card.tsx` needed the same `suppressHydrationWarning` fix as the Lighthouse pass
+
+**Decision:** `member-card.tsx`'s `Active {timeAgo(...)}` text is now
+wrapped in its own `<span suppressHydrationWarning>`, matching the fix
+already applied to five other components on 2026-08-28 (see that entry
+below).
+**Why:** confirmed live via Playwright against production, not assumed:
+`/groups/[id]` threw a real `Minified React error #418` (hydration
+mismatch) on every load. `member-card.tsx` is used from `GroupMembers`
+and the members-directory list — both Client Components — so it goes
+through a real hydration pass, but it was never in the 2026-08-28 fix
+list (that pass covered `activity-feed-list.tsx`, `activity-comments.tsx`,
+and the messages/notifications components — not this one). It had been
+silently exposed the whole time; it just hadn't been checked on a route
+that's genuinely re-rendered per request before. `/members` (ISR-static)
+and `/` (already fixed) never showed it, which is why this specific
+instance went unnoticed until a group page's console was actually
+checked.
+**Alternatives:** none — same fix, same reasoning as the original
+2026-08-28 entry; noting it separately here since it was a distinct
+component the original pass missed, not a regression from any change
+made this session.
+
 ## 2026-08-29 — Activity scoping: three different param names for the same "which group" concept
 
 **Decision:** `getActivityFeed` (`packages/api-client/src/activity.ts`)
