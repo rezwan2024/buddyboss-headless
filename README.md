@@ -2,17 +2,20 @@
 
 **🔗 Live demo:** [buddyboss.vercel.app](https://buddyboss.vercel.app)
 
+**🔗 Backend:** [st2-rezwan.hz2.developbb.dev](https://st2-rezwan.hz2.developbb.dev/) — my own live BuddyBoss dev site
+
 ![Activity feed screenshot](./docs/images/screenshot-activity-feed.png)
 
-A headless frontend for a real [BuddyBoss](https://www.buddyboss.com/) community
-site — activity feed, member profiles, groups, forums, messages, notifications,
-blog, and LearnDash courses — built with Next.js App Router on top of
-BuddyBoss's own REST API. No plugin was written for content; the browser never
-talks to WordPress directly.
+A headless frontend for my own [BuddyBoss](https://www.buddyboss.com/) dev
+site, [st2-rezwan.hz2.developbb.dev](https://st2-rezwan.hz2.developbb.dev/) —
+activity feed, member profiles, groups, forums, messages, notifications,
+blog, and LearnDash courses — built with Next.js App Router on top of that
+site's own BuddyBoss REST API. No plugin was written for content; the
+browser never talks to WordPress directly.
 
 This is a practice/portfolio project built almost entirely with
-[Claude Code](https://claude.com/claude-code), working against a **live**
-WordPress dev site the whole way through, with **every push to `main`
+[Claude Code](https://claude.com/claude-code), working against my **live**
+BuddyBoss dev site the whole way through, with **every push to `main`
 deploying automatically to Vercel from day one.** This README is as much
 about *how* it was built as *what* it is — see [Development story](#development-story)
 below.
@@ -115,7 +118,8 @@ shareable URL — [buddyboss.vercel.app](https://buddyboss.vercel.app) — inste
 of a promise that it'll exist eventually.
 
 Both local dev and the Vercel deploy point at the **same** WordPress backend
-(a dedicated dev site), configured entirely through a `WP_URL` environment
+— [st2-rezwan.hz2.developbb.dev](https://st2-rezwan.hz2.developbb.dev/), my
+own dedicated dev site — configured entirely through a `WP_URL` environment
 variable — never a hardcoded hostname anywhere in the codebase, since local
 and production would otherwise silently diverge.
 
