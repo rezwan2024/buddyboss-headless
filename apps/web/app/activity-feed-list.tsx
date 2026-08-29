@@ -6,7 +6,7 @@ import type { Activity } from "@buddyboss-headless/types";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { loadActivityPage } from "./actions";
+import { loadActivityPage, loadGroupActivityPage, loadMemberActivityPage } from "./actions";
 import ActivityComments from "./activity-comments";
 import { toggleFavoriteAction } from "./favorite-action";
 
@@ -238,16 +238,31 @@ export interface ActivityFeedListProps {
   initialItems: Activity[];
   initialTotal: number;
   initialPages: number;
+  /**
+   * Scopes the feed and its infinite-scroll pagination to one member's
+   * profile or one group's stream. Omit for the global home feed. The
+   * query key is always prefixed with `"activity-feed"` regardless of
+   * scope, so a broad `invalidateQueries({queryKey: ["activity-feed"]})`
+   * (used by the composer, likes, and comments) still refreshes whichever
+   * feed is mounted — see favorite-action.ts/activity-composer.tsx.
+   */
+  scope?: { type: "member"; id: number } | { type: "group"; id: number };
 }
 
 export default function ActivityFeedList({
   initialItems,
   initialTotal,
   initialPages,
+  scope,
 }: ActivityFeedListProps) {
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
-    queryKey: ["activity-feed"],
-    queryFn: ({ pageParam }) => loadActivityPage(pageParam),
+    queryKey: scope ? ["activity-feed", scope.type, scope.id] : ["activity-feed"],
+    queryFn: ({ pageParam }) => {
+      if (!scope) return loadActivityPage(pageParam);
+      return scope.type === "member"
+        ? loadMemberActivityPage(scope.id, pageParam)
+        : loadGroupActivityPage(scope.id, pageParam);
+    },
     initialPageParam: 1,
     getNextPageParam: (_lastPage, allPages) =>
       allPages.length < initialPages ? allPages.length + 1 : undefined,

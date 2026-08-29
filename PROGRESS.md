@@ -16,10 +16,10 @@ pass, rate limiting on login, cache revalidation webhook — all shipped
 and verified live. Post-Phase-6: user-requested fixes/polish, taken one
 at a time (see session log) — header layout, site-wide font size, a
 3-column dashboard layout for the activity home page, icon-only header
-nav for messages/notifications, self-service sign-up, and a LearnDash
+nav for messages/notifications, self-service sign-up, a LearnDash
 courses feature (catalog, enrollment, lessons/topics, completion
-tracking) — the first item PLAN.md's own "revisit only after Phase 6"
-note was written for.
+tracking), and a scoped activity feed + composer on member profiles and
+group pages.
 **Next task:** none currently planned — awaiting the next item in that
 list from the user.
 
@@ -99,6 +99,82 @@ this list whenever a new one is introduced.
 ---
 
 ## Session log
+
+### 2026-08-29 — Scoped activity feed + composer on member profiles and group pages
+
+- User reported the activity feed was missing from member profile and
+  group pages, and asked for a post-creation composer on the group feed.
+- The existing `getActivityFeed`/`createActivity`
+  (`packages/api-client/src/activity.ts`) had no scoping — every call hit
+  the same global `/buddyboss/v1/activity` feed. Confirmed live, not
+  assumed, exactly which query/body params actually scope this endpoint
+  (curl against the real API, then cleaned up every test post/document
+  created along the way):
+  - **GET scoping:** `user_id={id}` correctly filters to one member's
+    activity; `component=groups&primary_id={id}` correctly filters to one
+    group's stream. The naturally-guessable `item_id` param does **not**
+    filter (silently returns every group's activity regardless of value) —
+    `primary_id` is the one that matters.
+  - **POST scoping is a different param name from GET**, confirmed by
+    posting for real and checking where it landed: `POST /activity` takes
+    `component`+`primary_item_id` (not `primary_id`) to post into a group.
+    `POST /media`, `/video`, and `/document` (the attach-a-file endpoints)
+    instead take a plain `group_id` — a third naming convention for the
+    same concept, confirmed by reading `class-bp-rest-media-endpoint.php`/
+    `class-bp-rest-document-endpoint.php` and then testing each live.
+  - **Posting into a group you're not a member of is correctly rejected**
+    server-side with a real 403 (`bp_rest_authorization_required`) —
+    confirmed live with the test account against a group it doesn't
+    belong to, so the group composer's `is_member` gate is a real
+    permission match, not just a UI nicety.
+- `getActivityFeed` gained optional `userId`/`groupId` params;
+  `createActivity`, `attachMediaOrVideo`, and `attachDocument` gained an
+  optional `groupId` (mapped to whichever of the three actual param names
+  applies). `postActivityAction` now takes a bound `groupId` (same
+  `.bind(null, ...)` pattern `comment-action.ts` already uses to
+  parametrize by activity id). `ActivityFeedList` gained an optional
+  `scope` prop (`{type: "member"|"group", id}`) that changes both its
+  pagination loader and its query key — kept prefixed with
+  `"activity-feed"` regardless of scope, so the existing broad
+  `invalidateQueries({queryKey: ["activity-feed"]})` calls in the
+  composer/likes/comments code keep working unchanged across every scope
+  via TanStack Query's prefix matching.
+- Member profile's composer only shows on **your own** profile — this
+  install doesn't have (or wasn't confirmed to have) "post on someone
+  else's wall" enabled, so posting is scoped to the viewer's own feed the
+  same way `createActivity` already worked before this change. Group
+  composer shows to any member of that group (gated on `group.is_member`,
+  already fetched by the existing membership-button code).
+- Attachments (photo/video/document) work in the group composer too, not
+  just text — verified live end-to-end with a real document upload scoped
+  via `group_id`, confirmed it landed in the group's stream via a direct
+  API read, then cleaned up (the REST `DELETE /document/{id}` route
+  403'd for the uploader — `bp_rest_authorization_required` — despite
+  being the owner; had to leave that one test document/activity for
+  manual cleanup since WP-CLI cleanup commands were blocked by this
+  session's own auto-mode classifier. **Not yet cleaned up on the live
+  site:** a "test-upload.txt" document post in group 9 ("open"), activity
+  id 446/document id 16 — safe to delete via wp-admin or WP-CLI whenever
+  convenient).
+- Verified live via Playwright MCP: posted a real text activity into
+  group 9 (only group the test account belongs to) — appeared
+  immediately in the group's feed with no reload, confirmed scoped
+  correctly via a direct API read (`primary_item_id: 9`), then deleted
+  through the account's own delete permission. Confirmed the composer is
+  hidden on another member's profile (id 26) while their real activity
+  history (forum posts, likes, a document, several text updates) renders
+  correctly; confirmed it *is* shown on the logged-in account's own
+  profile (id 25).
+- `pnpm verify` (24/25 e2e, `--workers=1` — the one failure is the same
+  pre-existing `getByText("Headless Test Account")` ambiguous-match
+  fragility on the homepage documented earlier in this log, unrelated)
+  and `pnpm build` pass.
+- **What to look at:** any group page you're a member of (e.g.
+  `/groups/9`) — composer + scoped feed should appear above the member
+  list; any member's own profile shows the same for their own posts,
+  hidden when viewing someone else's. Also: there's one leftover test
+  document post on group 9 from this session's live API verification
+  (see above) worth deleting when convenient.
 
 ### 2026-08-29 — Phase 7: LearnDash courses (catalog, enrollment, lessons/topics, completion)
 

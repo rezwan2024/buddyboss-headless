@@ -21,7 +21,15 @@ function firstNonEmptyFile(formData: FormData, field: string): File | null {
   return file instanceof File && file.size > 0 ? file : null;
 }
 
+/**
+ * `groupId` is bound in by the caller (`ActivityComposer`) via
+ * `.bind(null, groupId)` before being passed to `useActionState` — same
+ * pattern `comment-action.ts` uses to parametrize an action by the activity
+ * it's attached to. Omit (or pass `undefined`) to post to the general feed;
+ * pass a group's id to post into that group's stream instead.
+ */
 export async function postActivityAction(
+  groupId: number | undefined,
   _prevState: PostActivityState,
   formData: FormData,
 ): Promise<PostActivityState> {
@@ -49,18 +57,18 @@ export async function postActivityAction(
   try {
     if (image) {
       const upload = await uploadFile("media", image, accessToken);
-      const media = await attachMediaOrVideo("media", upload.upload_id, accessToken);
+      const media = await attachMediaOrVideo("media", upload.upload_id, accessToken, groupId);
       if (content) await setActivityContent(media.activity_id, content, accessToken);
     } else if (video) {
       const upload = await uploadFile("video", video, accessToken);
-      const created = await attachMediaOrVideo("video", upload.upload_id, accessToken);
+      const created = await attachMediaOrVideo("video", upload.upload_id, accessToken, groupId);
       if (content) await setActivityContent(created.activity_id, content, accessToken);
     } else if (document) {
       const upload = await uploadDocument(document, accessToken);
-      const created = await attachDocument(upload.id, accessToken);
+      const created = await attachDocument(upload.id, accessToken, groupId);
       if (content) await setActivityContent(created.activity_id, content, accessToken);
     } else {
-      await createActivity(content, accessToken);
+      await createActivity(content, accessToken, groupId);
     }
   } catch {
     return { error: "Couldn't post that — try again." };

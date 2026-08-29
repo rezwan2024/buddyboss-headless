@@ -1,11 +1,15 @@
 import { fetchOrNotFound } from "@/lib/fetch-or-not-found";
 import { decodeEntities, timeAgo } from "@/lib/format";
 import { getAccessToken, getSessionUser } from "@/lib/session";
-import { getMember } from "@buddyboss-headless/api-client";
+import { getActivityFeed, getMember } from "@buddyboss-headless/api-client";
 import Image from "next/image";
 import { notFound } from "next/navigation";
+import ActivityComposer from "../../activity-composer";
+import ActivityFeedList from "../../activity-feed-list";
 import FriendshipButton from "./friendship-button";
 import MessageButton from "./message-button";
+
+const PER_PAGE = 20;
 
 export default async function MemberProfilePage({ params }: PageProps<"/members/[id]">) {
   const { id } = await params;
@@ -19,6 +23,14 @@ export default async function MemberProfilePage({ params }: PageProps<"/members/
   // A nonexistent member id genuinely 404s (confirmed live) — see
   // fetchOrNotFound's doc comment.
   const member = await fetchOrNotFound(() => getMember(memberId, accessToken ?? undefined));
+  // `user_id` is a real, confirmed-live filter on the activity endpoint —
+  // see getActivityFeed's doc comment.
+  const activity = await getActivityFeed({
+    userId: memberId,
+    perPage: PER_PAGE,
+    accessToken: accessToken ?? undefined,
+  });
+  const isOwnProfile = Boolean(accessToken && sessionUser && sessionUser.id === member.id);
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-8">
@@ -68,6 +80,20 @@ export default async function MemberProfilePage({ params }: PageProps<"/members/
           )}
         </div>
       </div>
+
+      <h2 className="mt-6 text-lg font-semibold">Activity</h2>
+      {/* Posting to a profile that isn't your own isn't supported by this
+          install (BuddyBoss's "post on someone's wall" is an opt-in setting,
+          not confirmed enabled here) — the composer only shows on your own
+          profile, matching how FriendshipButton/MessageButton are hidden
+          there for the opposite reason. */}
+      {isOwnProfile && <ActivityComposer />}
+      <ActivityFeedList
+        initialItems={activity.items}
+        initialTotal={activity.total}
+        initialPages={activity.pages}
+        scope={{ type: "member", id: memberId }}
+      />
     </main>
   );
 }

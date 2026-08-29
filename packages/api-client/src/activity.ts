@@ -18,9 +18,26 @@ export interface GetActivityFeedParams {
    * existing anonymous, ISR-cached feed.
    */
   accessToken?: string;
+  /**
+   * Scope to one member's own activity — GET's `user_id` filter, confirmed
+   * live to actually filter (unlike `item_id` below).
+   */
+  userId?: number;
+  /**
+   * Scope to one group's activity stream — `component=groups` +
+   * `primary_id={groupId}`, confirmed live to filter correctly. The
+   * seemingly-obvious `item_id` param does **not** filter (confirmed live —
+   * it silently returns every group's activity regardless of value), so
+   * `primary_id` is the one that matters here.
+   */
+  groupId?: number;
 }
 
-/** Global activity feed — `GET /buddyboss/v1/activity`. Public reads work with no auth. */
+/**
+ * Activity feed — `GET /buddyboss/v1/activity`. Public reads work with no
+ * auth. Global by default; pass `userId` or `groupId` (mutually exclusive)
+ * to scope to a member's profile feed or a group's feed instead.
+ */
 export async function getActivityFeed(
   params: GetActivityFeedParams = {},
 ): Promise<WpList<Activity>> {
@@ -30,6 +47,11 @@ export async function getActivityFeed(
     page: String(page),
     per_page: String(perPage),
   });
+  if (params.userId) query.set("user_id", String(params.userId));
+  if (params.groupId) {
+    query.set("component", "groups");
+    query.set("primary_id", String(params.groupId));
+  }
   return wpFetchList(`/buddyboss/v1/activity?${query}`, (body) => activityListSchema.parse(body), {
     accessToken: params.accessToken,
     ...(params.accessToken
@@ -53,12 +75,21 @@ function titleFromContent(content: string): string {
  * Create a text-only activity post — `POST /buddyboss/v1/activity`. Not
  * used when a photo/video/document is attached — see `attachMediaOrVideo`/
  * `attachDocument` in `./media`, which each create their own activity.
+ *
+ * Pass `groupId` to post into a group's stream instead of the general feed —
+ * confirmed live that `/activity`'s create endpoint takes `component` +
+ * `primary_item_id` for this (note: **not** the same param names GET uses to
+ * filter — GET's equivalent is `component` + `primary_id`).
  */
-export async function createActivity(content: string, accessToken: string) {
+export async function createActivity(content: string, accessToken: string, groupId?: number) {
   return wpFetchJson("/buddyboss/v1/activity", (body) => activityCreateResponseSchema.parse(body), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content, post_title: titleFromContent(content) }),
+    body: JSON.stringify({
+      content,
+      post_title: titleFromContent(content),
+      ...(groupId ? { component: "groups", primary_item_id: groupId } : {}),
+    }),
     accessToken,
     cache: "no-store",
   });

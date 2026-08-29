@@ -1,9 +1,11 @@
 import { fetchOrNotFound } from "@/lib/fetch-or-not-found";
 import { decodeEntities } from "@/lib/format";
 import { getAccessToken } from "@/lib/session";
-import { getGroup, getGroupMembers } from "@buddyboss-headless/api-client";
+import { getActivityFeed, getGroup, getGroupMembers } from "@buddyboss-headless/api-client";
 import Image from "next/image";
 import { notFound } from "next/navigation";
+import ActivityComposer from "../../activity-composer";
+import ActivityFeedList from "../../activity-feed-list";
 import GroupMembers from "./group-members";
 import GroupMembershipButton from "./group-membership-button";
 
@@ -23,6 +25,13 @@ export default async function GroupDetailPage({ params }: PageProps<"/groups/[id
   const group = await fetchOrNotFound(() => getGroup(groupId, accessToken ?? undefined));
 
   const members = await getGroupMembers(groupId, { perPage: PER_PAGE });
+  // `component=groups`+`primary_id` is a real, confirmed-live filter on the
+  // activity endpoint — see getActivityFeed's doc comment.
+  const activity = await getActivityFeed({
+    groupId,
+    perPage: PER_PAGE,
+    accessToken: accessToken ?? undefined,
+  });
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-8">
@@ -68,7 +77,19 @@ export default async function GroupDetailPage({ params }: PageProps<"/groups/[id
         </div>
       </div>
 
-      <h2 className="mt-6 text-lg font-semibold">Members</h2>
+      <h2 className="mt-6 text-lg font-semibold">Activity</h2>
+      {/* Posting into a group this account isn't a member of is rejected
+          server-side (confirmed live), so the composer is gated on
+          `is_member` rather than just "logged in". */}
+      {accessToken && group.is_member && <ActivityComposer groupId={groupId} />}
+      <ActivityFeedList
+        initialItems={activity.items}
+        initialTotal={activity.total}
+        initialPages={activity.pages}
+        scope={{ type: "group", id: groupId }}
+      />
+
+      <h2 className="mt-8 text-lg font-semibold">Members</h2>
       <GroupMembers
         groupId={groupId}
         initialItems={members.items}

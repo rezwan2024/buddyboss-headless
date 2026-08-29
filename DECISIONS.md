@@ -23,6 +23,56 @@ Format:
 
 ---
 
+## 2026-08-29 — Activity scoping: three different param names for the same "which group" concept
+
+**Decision:** `getActivityFeed` (`packages/api-client/src/activity.ts`)
+filters by `user_id` (member profile) or `component=groups`+`primary_id`
+(group stream) on GET. Writing into a group uses a *different* name per
+endpoint: `createActivity` sends `component`+`primary_item_id`;
+`attachMediaOrVideo`/`attachDocument` (`packages/api-client/src/media.ts`)
+send a plain `group_id`.
+**Why:** confirmed live for each one individually rather than assuming
+BuddyBoss is internally consistent about this — it isn't. GET's `item_id`
+looks like the obvious param for "which group" but silently doesn't
+filter at all (returns every group's activity regardless of value);
+`primary_id` is the one that actually works. POST's `primary_item_id`
+(not `primary_id`) is what actually creates the activity in that group,
+confirmed by posting for real and reading back where it landed.
+`/media`, `/video`, and `/document`'s create endpoints don't take
+`component`/`primary_item_id` at all — they take `group_id`, confirmed by
+reading `class-bp-rest-media-endpoint.php`/`class-bp-rest-document-endpoint.php`
+and then testing each live end-to-end (upload → attach with `group_id` →
+confirmed the resulting activity's `primary_item_id` matched). Posting
+into a group the caller isn't a member of is correctly rejected
+server-side with a real 403 (`bp_rest_authorization_required`), confirmed
+live against a group the test account doesn't belong to — so gating the
+group composer on `group.is_member` is enforcing a real permission, not
+just hiding UI that would work anyway.
+**Alternatives:** none — this is what the live API actually does; noting
+every name explicitly here so a future session doesn't try to make them
+consistent (e.g. "fixing" `attachDocument` to use
+`component`/`primary_item_id` because that's what `createActivity` uses)
+and break group-scoped uploads.
+
+## 2026-08-29 — Member profile composer only posts to your own profile
+
+**Decision:** `members/[id]/page.tsx` only renders `<ActivityComposer />`
+when the viewer is looking at their own profile
+(`sessionUser.id === member.id`), not on every profile with a session.
+**Why:** BuddyBoss's "post on someone else's wall" is an opt-in setting
+that wasn't confirmed enabled on this install, and testing it would mean
+posting real content onto another real member's profile to find out.
+Scoping the composer to "your own feed only" matches what
+`createActivity` already did everywhere else in the app before this
+change (no scoping at all just meant "post as yourself"), so this is the
+conservative default rather than a deliberate feature cut.
+**Alternatives:** show the composer on every profile and let a 403 (if
+the setting is off) surface as a normal form error — rejected; shipping a
+composer that plausibly fails for a reason the user can't see or fix
+(a site setting neither logged-in party controls) is worse than not
+showing it. Revisit if this install is confirmed to have wall-posting
+enabled.
+
 ## 2026-08-29 — LearnDash: use `buddyboss-app/learndash/v1`, not `ldlms/v2`
 
 **Decision:** `packages/api-client/src/learndash.ts` calls

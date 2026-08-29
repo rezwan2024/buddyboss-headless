@@ -18,9 +18,15 @@ const ATTACHMENT_FIELDS: { kind: AttachmentKind; label: string; accept: string }
   },
 ];
 
+export interface ActivityComposerProps {
+  /** Posts into this group's stream instead of the general feed. */
+  groupId?: number;
+}
+
 /** Only rendered when a session exists — see page.tsx. */
-export default function ActivityComposer() {
-  const [state, formAction, pending] = useActionState(postActivityAction, initialState);
+export default function ActivityComposer({ groupId }: ActivityComposerProps = {}) {
+  const boundAction = postActivityAction.bind(null, groupId);
+  const [state, formAction, pending] = useActionState(boundAction, initialState);
   const formRef = useRef<HTMLFormElement>(null);
   const queryClient = useQueryClient();
   // Only one attachment is supported per post (see post-activity-action.ts

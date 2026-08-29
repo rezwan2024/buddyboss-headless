@@ -47,11 +47,16 @@ export async function uploadDocument(file: File, accessToken: string) {
  * was confirmed against the live API). The returned item's `activity_id`
  * is that new activity's ID; the caller can `PATCH` it afterward (e.g. to
  * add caption text).
+ *
+ * Pass `groupId` to post into a group's stream instead — confirmed live
+ * this endpoint takes a `group_id` param (a different name from
+ * `createActivity`'s `component`/`primary_item_id` pair for the same idea).
  */
 export async function attachMediaOrVideo(
   kind: "media" | "video",
   uploadId: number,
   accessToken: string,
+  groupId?: number,
 ) {
   const [item] = await wpFetchJson(
     `/buddyboss/v1/${kind}`,
@@ -59,7 +64,11 @@ export async function attachMediaOrVideo(
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ upload_ids: [uploadId], privacy: "public" }),
+      body: JSON.stringify({
+        upload_ids: [uploadId],
+        privacy: "public",
+        ...(groupId ? { group_id: groupId } : {}),
+      }),
       accessToken,
       cache: "no-store",
     },
@@ -67,15 +76,23 @@ export async function attachMediaOrVideo(
   return item;
 }
 
-/** Step 2 for documents — same idea, but `POST /buddyboss/v1/document` takes `document_ids` instead of `upload_ids`. */
-export async function attachDocument(uploadId: number, accessToken: string) {
+/**
+ * Step 2 for documents — same idea, but `POST /buddyboss/v1/document` takes
+ * `document_ids` instead of `upload_ids`. Same `group_id` scoping param as
+ * `attachMediaOrVideo`, confirmed live.
+ */
+export async function attachDocument(uploadId: number, accessToken: string, groupId?: number) {
   const [item] = await wpFetchJson(
     "/buddyboss/v1/document",
     (body) => mediaAttachSchema.parse(body),
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ document_ids: [uploadId], privacy: "public" }),
+      body: JSON.stringify({
+        document_ids: [uploadId],
+        privacy: "public",
+        ...(groupId ? { group_id: groupId } : {}),
+      }),
       accessToken,
       cache: "no-store",
     },

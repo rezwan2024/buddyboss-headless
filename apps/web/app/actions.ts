@@ -29,6 +29,28 @@ export async function loadActivityPage(page: number) {
   return getActivityFeed({ page, perPage: PER_PAGE, accessToken: accessToken ?? undefined });
 }
 
+/** Called client-side by the infinite-scroll activity feed on a member's profile. */
+export async function loadMemberActivityPage(userId: number, page: number) {
+  const accessToken = await getAccessToken();
+  return getActivityFeed({
+    page,
+    perPage: PER_PAGE,
+    userId,
+    accessToken: accessToken ?? undefined,
+  });
+}
+
+/** Called client-side by the infinite-scroll activity feed on a group's page. */
+export async function loadGroupActivityPage(groupId: number, page: number) {
+  const accessToken = await getAccessToken();
+  return getActivityFeed({
+    page,
+    perPage: PER_PAGE,
+    groupId,
+    accessToken: accessToken ?? undefined,
+  });
+}
+
 /** Called client-side when a user expands an activity item's comment thread. */
 export async function loadActivityComments(activityId: number) {
   return getActivityComments(activityId);
