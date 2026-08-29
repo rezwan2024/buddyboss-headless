@@ -23,6 +23,37 @@ Format:
 
 ---
 
+## 2026-08-29 — Two independent Next.js body-size limits were blocking real uploads
+
+**Decision:** `next.config.ts` sets `experimental.serverActions.bodySizeLimit`
+and `experimental.proxyClientMaxBodySize` to `"20mb"` (both default much
+lower — 1MB and 10MB respectively).
+**Why:** confirmed live with a real 11.7MB test photo (this project's
+composer posts image/video/document uploads as part of a Server Action's
+own request body — `<form action={formAction}>` in `activity-composer.tsx`
+— not a separate multipart request): the upload failed with a clean 413
+before `postActivityAction` ever ran, matching Next's documented 1MB
+default `serverActions.bodySizeLimit`. Raising just that surfaced a
+*second*, independent limit: a 500 ("Unexpected end of form") — this
+project's `proxy.ts` (Next's renamed `middleware.ts`, runs on every
+request for token refresh) makes Next buffer the whole request body in
+memory, silently truncating anything past a 10MB default
+(`proxyClientMaxBodySize` — confirmed via the exact Next 16 config name
+in `node_modules/next/dist/docs`, since this repo's own `apps/web/
+AGENTS.md` warns the framework has real breaking changes vs. training
+data). Truncating a multipart body mid-upload corrupts it, which is what
+produced the "Unexpected end of form" parse error rather than a clean
+size-limit rejection. Both limits had to be raised together — raising
+either alone still failed, just with a different, more confusing error
+each time. Verified end-to-end afterward: an 11.7MB real JPEG uploaded
+and posted successfully.
+**Alternatives:** a much larger limit (e.g. `"50mb"`) — considered, but
+`20mb` comfortably covers a real phone photo or a short video clip
+without leaving the app open to arbitrarily large request bodies tying up
+a serverless function for minutes (uploads already measured at ~35s for
+25MB against this host — see the following entry); revisit if a real
+video upload turns out to need more.
+
 ## 2026-08-29 — `wp-fetch.ts`'s new read timeout must never apply to writes/uploads
 
 **Decision:** `fetchWithRetry`'s 10s `AbortSignal.timeout` only applies when

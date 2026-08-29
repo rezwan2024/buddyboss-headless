@@ -250,8 +250,33 @@ this list whenever a new one is introduced.
   (GET/HEAD-only) check attempt-count already used, restoring uploads to
   their pre-existing no-timeout behavior. Full writeup in `DECISIONS.md`.
 - `pnpm verify`'s non-e2e portions (typecheck/lint/unit) and `pnpm build`
-  pass; redeploy + live re-verification of an actual large upload is the
-  immediate next step before considering this closed.
+  pass.
+- **Fourth follow-up, same session — the actual root cause of "large
+  image/video not uploading":** after the timeout regression above was
+  fixed, testing a real 11.7MB photo through the composer still failed —
+  first with a clean 413 (Next's own Server Action `bodySizeLimit`,
+  defaults to 1MB), then, after raising that, a 500 "Unexpected end of
+  form" (a *second*, independent limit: `proxy.ts` buffers the whole
+  request body in memory and silently truncates past a 10MB default —
+  `proxyClientMaxBodySize`). Both had to be raised together in
+  `next.config.ts` (now `"20mb"` each) — this had nothing to do with
+  WordPress or the shared dev host at all, unlike everything else fixed
+  earlier in this session; it was purely this app's own Next.js
+  configuration never having been sized for a real photo/video upload
+  before. Full detail in `DECISIONS.md`.
+- Verified via a real production build locally (`next start` on a spare
+  port, not the user's dev server) end-to-end: uploaded an actual 11.7MB
+  JPEG through the live composer UI — succeeded and appeared in the feed
+  with no console errors (previously failed with a 413, confirmed
+  reproduced before the fix). Test post deleted from the real shared WP
+  host afterward (this ran against the same backend as production, not a
+  sandbox). Video wasn't separately tested with a real video file (no
+  video-generation tool available in this environment), but the composer
+  posts it through the identical Server-Action-body code path — the fix
+  is content-type-agnostic, so it should apply the same way.
+- **Not yet redeployed to buddyboss.vercel.app as of writing this
+  entry** — next step is push + redeploy + re-alias, then a live
+  Playwright re-check of a large upload.
 
 ### 2026-08-29 — Phase 7: LearnDash courses (catalog, enrollment, lessons/topics, completion)
 
